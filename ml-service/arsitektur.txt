@@ -1,0 +1,29 @@
+D:.
+│   requirements.txt
+│   
+├───app
+│   │   main.py
+│   │   
+│   ├───models
+│   │       schemas.py
+│   │       
+│   └───services
+│           predictor.py
+│           
+├───dataset
+│       maintenance_sensor.csv
+│       shoe_sensor.csv
+│       shoe_sensor_dataset.py
+│       
+├───tests
+│       test_api.py
+│       
+├───trained_model
+│       maintenance_model.joblib
+│       maintenance_scaler.joblib
+│       smell_model.joblib
+│       smell_scaler.joblib
+│       
+└───training
+        preprocessing.py
+        train.py

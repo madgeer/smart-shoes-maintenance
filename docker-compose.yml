@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # 1. Database Service (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: smartshoe-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smartshoe_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Jalankan inisialisasi skema (init.sql) lalu benih data (seed.sql) secara berurutan
+      - ./database/init.sql:/docker-entrypoint-initdb.d/1-init.sql
+      - ./database/seed/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. MQTT Broker Service (Eclipse Mosquitto)
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: smartshoe-mosquitto
+    restart: always
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+volumes:
+  postgres_data:
+  mosquitto_data:
+  mosquitto_log:

@@ -1,0 +1,25 @@
+# Abaikan virtual environment lokal
+.venv/
+venv/
+ENV/
+
+# Abaikan cache Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Abaikan log dan cache pengujian
+.pytest_cache/
+.pytest/
+tests/
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+arsitektur.txt
+
+# Abaikan dataset riil karena model sudah terkompilasi ke folder trained_model
+dataset/
+training/
