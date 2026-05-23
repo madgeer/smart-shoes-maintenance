@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Database Service (PostgreSQL)
   db:
@@ -30,6 +28,42 @@ services:
       - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
+
+  # 3. Machine Learning Service (FastAPI)
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: smartshoe-ml-service
+    restart: always
+    ports:
+      - "8000:8000"
+
+  # 4. Gateway Service (Node.js)
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: smartshoe-gateway-service
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=smartshoe_db
+      - MQTT_BROKER=mqtt://mqtt
+      - MQTT_PORT=1883
+      - MQTT_KEEPALIVE=60
+      - ML_SERVICE_URL=http://ml-service:8000
+      - SECRET_KEY=super_secret_session_key_for_smart_shoes
+      - JWT_EXPIRES_IN=7d
+    depends_on:
+      - db
+      - mqtt
 
 volumes:
   postgres_data:

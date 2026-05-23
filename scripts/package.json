@@ -1,0 +1,13 @@
+{
+  "name": "smartshoe-esp32-emulator",
+  "version": "1.0.0",
+  "description": "Interactive ESP32 Hardware Emulator for Smart Shoes Maintenance System",
+  "main": "emulator.js",
+  "scripts": {
+    "start": "node emulator.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.5.5"
+  },
+  "private": true
+}
