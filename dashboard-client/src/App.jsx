@@ -18,6 +18,7 @@ import {
 import { connectSocket } from "./services/socket";
 import { login } from "./services/auth";
 import { api } from "./services/api";
+import { AuthPage } from "./components/AuthPage";
 
 import {
   LineChart,
@@ -106,6 +107,16 @@ function ControlCard({ title, icon, children }) {
 }
 
 export default function SmartShoeDryerDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user_profile") || "{}");
+    } catch {
+      return {};
+    }
+  });
+
   const [sensorData, setSensorData] = useState({
     temperature: 0,
     humidity: 0,
@@ -201,23 +212,36 @@ export default function SmartShoeDryerDashboard() {
     }
   };
 
+  const handleAuthSuccess = (newToken, user) => {
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user_profile", JSON.stringify(user));
+    setToken(newToken);
+    setUserProfile(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user_profile");
+    setToken("");
+    setUserProfile({});
+    setIsAuthenticated(false);
+    // Force reload to completely reset websocket/states cleanly
+    window.location.reload();
+  };
+
   const sensorDataRef = useRef(sensorData);
   useEffect(() => {
     sensorDataRef.current = sensorData;
   }, [sensorData]);
 
   useEffect(() => {
+    if (!token || !isAuthenticated) return;
+
     let socket;
 
     const initSocket = async () => {
       try {
-        const data = await login(
-          "johndoe@example.com",
-          "password123"
-        );
-
-        localStorage.setItem("token", data.token);
-
         // Fetch initial data
         try {
           const deviceResponse = await api.get("/devices");
@@ -268,9 +292,13 @@ export default function SmartShoeDryerDashboard() {
           }
         } catch (err) {
           console.error("Gagal melakukan load data awal:", err.message);
+          if (err.response && err.response.status === 401) {
+            console.warn("[AUTH] Token kedaluwarsa atau tidak valid, memaksa logout.");
+            handleLogout();
+          }
         }
 
-        socket = connectSocket(data.token);
+        socket = connectSocket(token);
 
         socket.on("connect", () => {
           console.log("WEBSOCKET CONNECTED:", socket.id);
@@ -353,7 +381,6 @@ export default function SmartShoeDryerDashboard() {
             );
           }
 
-          // Add to history logs list dynamically using Ref
           const pred = payload.prediction;
           setLogs((prev) => [
             {
@@ -387,7 +414,11 @@ export default function SmartShoeDryerDashboard() {
         socket.disconnect();
       }
     };
-  }, []);
+  }, [token, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F1EA] flex text-[#3A2B1C]">
@@ -448,8 +479,13 @@ export default function SmartShoeDryerDashboard() {
 
           <div className="flex items-center gap-5">
             <div className="text-right hidden md:block">
-              <h4 className="font-semibold">21 May 2026</h4>
-              <p className="text-sm text-gray-500">11:24 AM</p>
+              <h4 className="font-semibold">{userProfile?.name || "User"}</h4>
+              <button 
+                onClick={handleLogout}
+                className="text-xs text-red-500 hover:text-red-700 font-semibold underline cursor-pointer"
+              >
+                Logout
+              </button>
             </div>
 
             <button className="relative">
@@ -457,7 +493,9 @@ export default function SmartShoeDryerDashboard() {
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
             </button>
 
-            <div className="w-11 h-11 rounded-full bg-[#C97B36]"></div>
+            <div className="w-11 h-11 rounded-full bg-[#C97B36] flex items-center justify-center font-bold text-white uppercase text-lg">
+              {(userProfile?.name || "U").substring(0, 1)}
+            </div>
           </div>
         </header>
 
