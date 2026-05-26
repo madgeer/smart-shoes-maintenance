@@ -38,6 +38,12 @@ services:
     restart: always
     ports:
       - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=smartshoe_db
 
   # 4. Gateway Service (Node.js)
   gateway-service:

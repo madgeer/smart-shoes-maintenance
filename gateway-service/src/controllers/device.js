@@ -52,7 +52,7 @@ const getDevices = async (req, res) => {
 
   try {
     const devices = await db.query(
-      'SELECT id, device_name, device_code, status, created_at FROM devices WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, device_name, device_code, status, control_mode, heater_state, uv_light_state, fan_state, created_at FROM devices WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
 
@@ -91,16 +91,30 @@ const sendDeviceCommand = async (req, res) => {
       });
     }
 
+    const activeMode = mode || 'manual';
+    const hState = actuators.heater || 'OFF';
+    const uvState = actuators.uv_light || 'OFF';
+    const fState = actuators.fan || 'OFF';
+
+    // Simpan status kontrol baru ke database PostgreSQL
+    await db.query(
+      `UPDATE devices 
+       SET control_mode = $1, heater_state = $2, uv_light_state = $3, fan_state = $4 
+       WHERE device_code = $5`,
+      [activeMode, hState, uvState, fState, device_code]
+    );
+    console.log(`[DEVICE-CTRL] Status kontrol disimpan ke DB untuk ${device_code}: mode=${activeMode}, heater=${hState}, uv=${uvState}, fan=${fState}`);
+
     const commandTopic = `v1/devices/${device_code}/commands`;
     const commandPayload = {
       command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
       device_code: device_code,
       actuators: {
-        heater: actuators.heater || 'OFF',
-        uv_light: actuators.uv_light || 'OFF',
-        fan: actuators.fan || 'OFF'
+        heater: hState,
+        uv_light: uvState,
+        fan: fState
       },
-      mode: mode || 'manual',
+      mode: activeMode,
       timestamp: new Date().toISOString()
     };
 

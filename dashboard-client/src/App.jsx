@@ -224,6 +224,14 @@ export default function SmartShoeDryerDashboard() {
           if (deviceResponse.data && deviceResponse.data.success && deviceResponse.data.data.length > 0) {
             const dev = deviceResponse.data.data[0];
             setDeviceOnline(dev.status === "active" || dev.status === "online");
+            if (dev.control_mode) {
+              setControlMode(dev.control_mode);
+            }
+            setActuators({
+              heater: dev.heater_state || "OFF",
+              uv_light: dev.uv_light_state || "OFF",
+              fan: dev.fan_state || "OFF"
+            });
           }
 
           const logsResponse = await api.get("/sensor-logs?shoe_id=1");

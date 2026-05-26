@@ -7,6 +7,11 @@ class PredictorService:
 
     def __init__(self, model_dir: str = "trained_model") -> None:
         """Memuat model-model .joblib dari folder trained_model/."""
+        self.reload_models(model_dir)
+
+    def reload_models(self, model_dir: str) -> None:
+        """Memuat ulang semua model dan scaler secara dinamis tanpa downtime."""
+        print(f"[DYNAMIC-RELOAD] Memuat ulang semua model ML dari: {model_dir}")
         # 1. Memuat model Estimator Waktu (Regression)
         self.maintenance_model = joblib.load(os.path.join(model_dir, "maintenance_model.joblib"))
         self.maintenance_scaler = joblib.load(os.path.join(model_dir, "maintenance_scaler.joblib"))
@@ -16,6 +21,7 @@ class PredictorService:
         self.smell_model = smell_package['model']
         self.cluster_mapping: Dict[int, int] = smell_package['cluster_mapping']
         self.smell_scaler = joblib.load(os.path.join(model_dir, "smell_scaler.joblib"))
+        print("[DYNAMIC-RELOAD] Semua model ML berhasil dimuat ulang secara dinamis!")
 
     def predict_drying_time(self, kelembapan_awal: float, kelembapan_sekarang: float, suhu: float, jenis_bahan: int, sensor_bau: float) -> Tuple[float, str]:
         """Melakukan normalisasi otomatis dan memprediksi sisa waktu pengeringan."""
