@@ -11,7 +11,7 @@ INSERT INTO users (name, email, password, created_at)
 VALUES (
     'John Doe', 
     'johndoe@example.com', 
-    '$2b$10$EPf9jYiN2F4D/K4Lh5v6ueC7JzM4P0G5gL68l0K7mZ1nK2L8w6oP2', -- Hashed 'password123'
+    '$2a$10$cJxOnevDl7myk4UuNz9aQutHmw6iPzTUFly/QZqbgrGqzpHGC67H6', -- Hashed 'password123'
     NOW() - INTERVAL '7 days'
 );
 

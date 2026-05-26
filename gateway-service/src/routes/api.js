@@ -23,6 +23,7 @@ router.post('/auth/login', authController.login);
 // --- A. Manajemen Perangkat (Devices) ---
 router.post('/devices', verifyToken, deviceController.registerDevice);
 router.get('/devices', verifyToken, deviceController.getDevices);
+router.post('/devices/:device_code/commands', verifyToken, deviceController.sendDeviceCommand);
 
 // --- B. Manajemen Sepatu (Shoes) ---
 router.post('/shoes', verifyToken, shoeController.addShoe);

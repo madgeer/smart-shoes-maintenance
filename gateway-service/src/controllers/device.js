@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const mqttClient = require('../config/mqtt');
+const wsManager = require('../websocket/socket');
 
 // 1. Mendaftarkan perangkat baru (ESP32) untuk User yang sedang login
 const registerDevice = async (req, res) => {
@@ -67,7 +69,69 @@ const getDevices = async (req, res) => {
   }
 };
 
+// 3. Mengirim perintah kendali manual aktuator ke perangkat via MQTT
+const sendDeviceCommand = async (req, res) => {
+  const { device_code } = req.params;
+  const { mode, actuators } = req.body;
+
+  if (!device_code || !actuators) {
+    return res.status(400).json({
+      success: false,
+      message: 'Parameter device_code dan actuators wajib diisi.'
+    });
+  }
+
+  try {
+    // Validasi apakah perangkat ini terdaftar di DB
+    const checkDevice = await db.query('SELECT id FROM devices WHERE device_code = $1', [device_code]);
+    if (checkDevice.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Perangkat dengan kode '${device_code}' tidak terdaftar.`
+      });
+    }
+
+    const commandTopic = `v1/devices/${device_code}/commands`;
+    const commandPayload = {
+      command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
+      device_code: device_code,
+      actuators: {
+        heater: actuators.heater || 'OFF',
+        uv_light: actuators.uv_light || 'OFF',
+        fan: actuators.fan || 'OFF'
+      },
+      mode: mode || 'manual',
+      timestamp: new Date().toISOString()
+    };
+
+    // Publish komando ke broker MQTT Mosquitto
+    mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, (err) => {
+      if (err) {
+        console.error(`[DEVICE-CTRL] Gagal mempublikasikan komando ke ${commandTopic}:`, err.message);
+      } else {
+        console.log(`[DEVICE-CTRL] Berhasil mempublikasikan komando manual ke ${commandTopic}:`, commandPayload.actuators);
+      }
+    });
+
+    // Siarkan juga ke semua koneksi WebSocket room agar UI langsung ter-update secara real-time
+    wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Command published successfully',
+      data: commandPayload
+    });
+  } catch (error) {
+    console.error('[DEVICE-CTRL] Error Send Device Command:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan sistem saat mengirim perintah.'
+    });
+  }
+};
+
 module.exports = {
   registerDevice,
-  getDevices
+  getDevices,
+  sendDeviceCommand
 };

@@ -15,14 +15,14 @@
 
 // 1. Kredensial WiFi
 // -------------------------------------------------------------------------
-#define WIFI_SSID       "NAMA_WIFI_ANDA"      // Ganti dengan SSID WiFi Anda
-#define WIFI_PASSWORD   "PASSWORD_WIFI_ANDA"  // Ganti dengan Password WiFi Anda
+#define WIFI_SSID       "Tenda_D8BDA0"      // Ganti dengan SSID WiFi Anda
+#define WIFI_PASSWORD   "bodoamat12"  // Ganti dengan Password WiFi Anda
 
 // 2. Konfigurasi Broker MQTT Mosquitto
 // -------------------------------------------------------------------------
 // CATATAN: Jangan gunakan "localhost" karena ESP32 tidak bisa mengakses localhost host.
 // Gunakan alamat IP komputer Anda yang menjalankan Docker/Mosquitto (contoh: "192.168.1.50")
-#define MQTT_BROKER     "192.168.1.100"       // Ganti dengan IP komputer Host Anda
+#define MQTT_BROKER     "192.168.0.188"       // Ganti dengan IP komputer Host Anda
 #define MQTT_PORT       1883
 #define MQTT_USER       ""                    // Kosongkan jika broker tanpa autentikasi
 #define MQTT_PASS       ""                    // Kosongkan jika broker tanpa autentikasi

@@ -5,15 +5,15 @@ const wsManager = require('../websocket/socket');
 
 // Inisialisasi MQTT Listener
 const initMqttListener = () => {
-  // Melakukan subscribe ke semua data telemetri dari perangkat apa pun
-  // Pola: v1/devices/+/telemetry (+ adalah wildcard untuk device_code)
+  // Melakukan subscribe ke data telemetri dan status koneksi dari perangkat apa pun
   const telemetryTopic = 'v1/devices/+/telemetry';
+  const statusTopic = 'v1/devices/+/status';
   
-  mqttClient.subscribe(telemetryTopic, (err) => {
+  mqttClient.subscribe([telemetryTopic, statusTopic], (err) => {
     if (err) {
-      console.error(`[MQTT-LISTENER] Gagal men-subscribe topik: ${telemetryTopic}`, err);
+      console.error(`[MQTT-LISTENER] Gagal men-subscribe topik telemetri/status`, err);
     } else {
-      console.log(`[MQTT-LISTENER] Berhasil men-subscribe topik: ${telemetryTopic}`);
+      console.log(`[MQTT-LISTENER] Berhasil men-subscribe topik telemetri dan status.`);
     }
   });
 
@@ -22,6 +22,30 @@ const initMqttListener = () => {
     console.log(`[MQTT-LISTENER] Menerima pesan pada topik: ${topic}`);
     
     try {
+      // A. Menangani status online/offline perangkat keras (LWT / Startup)
+      if (topic.endsWith('/status')) {
+        const payload = JSON.parse(message.toString());
+        const { device_code, status } = payload;
+        
+        if (!device_code || !status) {
+          console.warn('[MQTT-LISTENER] Payload status tidak lengkap. Dilewati.');
+          return;
+        }
+
+        const dbStatus = status === 'online' ? 'active' : 'inactive';
+        await db.query(
+          'UPDATE devices SET status = $1 WHERE device_code = $2',
+          [dbStatus, device_code]
+        );
+        console.log(`[MQTT-LISTENER] Perangkat ${device_code} status diperbarui di DB menjadi: ${dbStatus}`);
+
+        // Siarkan status koneksi ke WebSocket klien
+        wsManager.broadcastToDevice(device_code, 'device:status', {
+          device_code,
+          status
+        });
+        return;
+      }
       // 1. Parsing Payload Telemetri
       const payload = JSON.parse(message.toString());
       const { device_code, shoe_id, telemetry, metrics, timestamp } = payload;
@@ -202,11 +226,11 @@ const initMqttListener = () => {
         mode: 'auto',
         timestamp: new Date().toISOString()
       };
-
       mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
         console.log(`[MQTT-ACTUATOR] Publikasi otomatis ke '${commandTopic}':`, commandPayload.actuators);
+        // Siarkan juga perintah otomatis ke WebSocket agar UI ikut ter-update
+        wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
       });
-
     } catch (err) {
       console.error('[MQTT-LISTENER] Gagal memproses telemetri MQTT:', err.message);
     }

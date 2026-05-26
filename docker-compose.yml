@@ -65,6 +65,18 @@ services:
       - db
       - mqtt
 
+  # 5. Dashboard Client (React + Nginx)
+  dashboard-client:
+    build:
+      context: ./dashboard-client
+      dockerfile: Dockerfile
+    container_name: smartshoe-dashboard-client
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway-service
+
 volumes:
   postgres_data:
   mosquitto_data:
