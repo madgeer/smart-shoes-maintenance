@@ -191,8 +191,8 @@ graph TD
 ```
 
 *   **Port Default**: `8000`
-*   **Model Klasifikasi Bau**: Menggunakan *K-Nearest Neighbors (KNN)* atau *K-Means* untuk klasterisasi tingkat bau dan sisa kelembapan.
-*   **Model Estimasi Waktu**: Menggunakan *Linear Regression* untuk menghitung estimasi menit tersisa hingga kelembapan menyentuh titik optimal.
+*   **Model Klasifikasi Bau**: Menggunakan *K-Means Clustering* untuk klasterisasi tingkat bau dan kelembapan saat ini.
+*   **Model Estimasi Waktu**: Menggunakan *Multiple Linear Regression* untuk menghitung estimasi menit tersisa hingga kelembapan menyentuh titik optimal.
 
 ---
 

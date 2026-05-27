@@ -5,15 +5,15 @@ const wsManager = require('../websocket/socket');
 
 // Inisialisasi MQTT Listener
 const initMqttListener = () => {
-  // Melakukan subscribe ke semua data telemetri dari perangkat apa pun
-  // Pola: v1/devices/+/telemetry (+ adalah wildcard untuk device_code)
+  // Melakukan subscribe ke data telemetri dan status koneksi dari perangkat apa pun
   const telemetryTopic = 'v1/devices/+/telemetry';
+  const statusTopic = 'v1/devices/+/status';
   
-  mqttClient.subscribe(telemetryTopic, (err) => {
+  mqttClient.subscribe([telemetryTopic, statusTopic], (err) => {
     if (err) {
-      console.error(`[MQTT-LISTENER] Gagal men-subscribe topik: ${telemetryTopic}`, err);
+      console.error(`[MQTT-LISTENER] Gagal men-subscribe topik telemetri/status`, err);
     } else {
-      console.log(`[MQTT-LISTENER] Berhasil men-subscribe topik: ${telemetryTopic}`);
+      console.log(`[MQTT-LISTENER] Berhasil men-subscribe topik telemetri dan status.`);
     }
   });
 
@@ -22,6 +22,30 @@ const initMqttListener = () => {
     console.log(`[MQTT-LISTENER] Menerima pesan pada topik: ${topic}`);
     
     try {
+      // A. Menangani status online/offline perangkat keras (LWT / Startup)
+      if (topic.endsWith('/status')) {
+        const payload = JSON.parse(message.toString());
+        const { device_code, status } = payload;
+        
+        if (!device_code || !status) {
+          console.warn('[MQTT-LISTENER] Payload status tidak lengkap. Dilewati.');
+          return;
+        }
+
+        const dbStatus = status === 'online' ? 'active' : 'inactive';
+        await db.query(
+          'UPDATE devices SET status = $1 WHERE device_code = $2',
+          [dbStatus, device_code]
+        );
+        console.log(`[MQTT-LISTENER] Perangkat ${device_code} status diperbarui di DB menjadi: ${dbStatus}`);
+
+        // Siarkan status koneksi ke WebSocket klien
+        wsManager.broadcastToDevice(device_code, 'device:status', {
+          device_code,
+          status
+        });
+        return;
+      }
       // 1. Parsing Payload Telemetri
       const payload = JSON.parse(message.toString());
       const { device_code, shoe_id, telemetry, metrics, timestamp } = payload;
@@ -36,9 +60,9 @@ const initMqttListener = () => {
       const fan_usage_duration = metrics ? metrics.fan_usage_duration || 0.0 : 0.0;
       const uv_usage_duration = metrics ? metrics.uv_usage_duration || 0.0 : 0.0;
 
-      // 2. Cari data device_id dan user_id pemilik perangkat di database
+      // 2. Cari data perangkat dan status mode kontrol di database
       const deviceResult = await db.query(
-        'SELECT id, user_id, device_name FROM devices WHERE device_code = $1',
+        'SELECT id, user_id, device_name, control_mode, heater_state, uv_light_state, fan_state FROM devices WHERE device_code = $1',
         [device_code]
       );
 
@@ -50,6 +74,7 @@ const initMqttListener = () => {
       const device = deviceResult.rows[0];
       const deviceId = device.id;
       const userId = device.user_id;
+      const controlMode = device.control_mode || 'auto';
 
       // 3. Simpan data sensor ke tabel `sensor_logs`
       const insertLogQuery = `
@@ -179,34 +204,62 @@ const initMqttListener = () => {
         });
       }
 
-      // 9. Kirim balik Perintah Aksi Aktuasi Fisik ke ESP32 via MQTT (Auto Mode Aktuator)
+      // 9. Kirim balik Perintah Aksi Aktuasi Fisik ke ESP32 via MQTT
       // Sesuai mqtt-specification.md: Gateway mengirim instruksi ke topik 'v1/devices/{device_code}/commands'
       const commandTopic = `v1/devices/${device_code}/commands`;
-      
-      // Logika Aktuasi Otomatis (Auto Mode):
-      // - Heater aktif jika kelembapan belum optimal kering (>15%)
-      // - UV aktif jika bau terdeteksi 'Bau' (mencegah bakteri)
-      // - Kipas aktif jika salah satu heater atau UV menyala
-      const heaterState = humidity > 15.0 ? 'ON' : 'OFF';
-      const uvState = smellPred.kategori === 'Bau' ? 'ON' : 'OFF';
-      const fanState = (humidity > 15.0 || smellPred.kategori === 'Bau') ? 'ON' : 'OFF';
 
-      const commandPayload = {
-        command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
-        device_code: device_code,
-        actuators: {
-          heater: heaterState,
-          uv_light: uvState,
-          fan: fanState
-        },
-        mode: 'auto',
-        timestamp: new Date().toISOString()
-      };
+      if (controlMode === 'manual') {
+        // A. JIKA MODE MANUAL: Kirim ulang perintah manual stabil yang tersimpan di DB
+        const commandPayload = {
+          command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
+          device_code: device_code,
+          actuators: {
+            heater: device.heater_state || 'OFF',
+            uv_light: device.uv_light_state || 'OFF',
+            fan: device.fan_state || 'OFF'
+          },
+          mode: 'manual',
+          timestamp: new Date().toISOString()
+        };
 
-      mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
-        console.log(`[MQTT-ACTUATOR] Publikasi otomatis ke '${commandTopic}':`, commandPayload.actuators);
-      });
+        mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
+          console.log(`[MQTT-ACTUATOR] Mode MANUAL aktif untuk ${device_code}. Mengunci state:`, commandPayload.actuators);
+          // Siarkan ke WebSocket agar UI stabil pada mode manual
+          wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
+        });
+      } else {
+        // B. JIKA MODE AUTO: Lakukan kalkulasi otomatis
+        // - Heater aktif jika kelembapan belum optimal kering (>15%)
+        // - UV aktif jika bau terdeteksi 'Bau' (mencegah bakteri)
+        // - Kipas aktif jika salah satu heater atau UV menyala
+        const heaterState = humidity > 15.0 ? 'ON' : 'OFF';
+        const uvState = smellPred.kategori === 'Bau' ? 'ON' : 'OFF';
+        const fanState = (humidity > 15.0 || smellPred.kategori === 'Bau') ? 'ON' : 'OFF';
 
+        // Simpan status aktuator otomatis yang baru terhitung ke database
+        await db.query(
+          `UPDATE devices SET heater_state = $1, uv_light_state = $2, fan_state = $3 WHERE device_code = $4`,
+          [heaterState, uvState, fanState, device_code]
+        );
+
+        const commandPayload = {
+          command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
+          device_code: device_code,
+          actuators: {
+            heater: heaterState,
+            uv_light: uvState,
+            fan: fanState
+          },
+          mode: 'auto',
+          timestamp: new Date().toISOString()
+        };
+
+        mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
+          console.log(`[MQTT-ACTUATOR] Mode AUTO aktif untuk ${device_code}. Mengirim hasil ML:`, commandPayload.actuators);
+          // Siarkan ke WebSocket agar UI ikut ter-update
+          wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
+        });
+      }
     } catch (err) {
       console.error('[MQTT-LISTENER] Gagal memproses telemetri MQTT:', err.message);
     }

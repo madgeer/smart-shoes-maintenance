@@ -1,4 +1,5 @@
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,8 @@ from app.models.schemas import (
     SmellResponse,
 )
 from app.services.predictor import PredictorService
+from app.services.trainer import train_models_from_db
+from app.services.scheduler import run_scheduler
 
 # Global predictor instance
 predictor: PredictorService = None
@@ -43,6 +46,11 @@ async def lifespan(app: FastAPI):
             print(f"[SUKSES] Semua model ML berhasil dimuat dari {model_dir}")
         except Exception as e:
             print(f"[ERROR] Gagal memuat model ML: {str(e)}")
+
+    # Aktifkan scheduler retraining otomatis di latar belakang secara non-blocking
+    if predictor is not None:
+        asyncio.create_task(run_scheduler(predictor, model_dir=model_dir))
+        print("[LIFESPAN] Scheduler retraining otomatis di latar belakang diaktifkan!")
 
     yield
     print("[INFO] Server FastAPI dihentikan.")
@@ -141,3 +149,50 @@ async def predict_smell(request: SmellRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Terjadi kesalahan saat memprediksi tingkat bau: {str(e)}",
         )
+
+
+@app.post(
+    "/train/trigger",
+    tags=["Retraining"],
+)
+async def trigger_retraining():
+    """Memicu pelatihan ulang model secara manual berbasis data PostgreSQL aktif."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_dir = os.path.abspath(os.path.join(base_dir, "..", "trained_model"))
+    
+    # 1. Jalankan training pipeline dari DB
+    result = train_models_from_db(model_dir=model_dir)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Gagal melatih ulang model: {result.get('error')}",
+        )
+        
+    reg_metrics = result.get("regression_metrics", {})
+    smell_metrics = result.get("smell_metrics", {})
+    
+    # 2. Reload model secara dinamis jika setidaknya satu model sukses dilatih ulang
+    if reg_metrics.get("status") == "success" or smell_metrics.get("status") == "success":
+        if predictor is not None:
+            predictor.reload_models(model_dir=model_dir)
+            return {
+                "success": True,
+                "message": "Pelatihan ulang model selesai dan model baru berhasil di-reload secara dinamis tanpa downtime!",
+                "regression_metrics": reg_metrics,
+                "smell_metrics": smell_metrics
+            }
+        else:
+            return {
+                "success": True,
+                "message": "Pelatihan ulang model selesai, tetapi server predictor belum siap untuk me-reload.",
+                "regression_metrics": reg_metrics,
+                "smell_metrics": smell_metrics
+            }
+    else:
+        return {
+            "success": True,
+            "message": "Proses pelatihan selesai dilewati karena baris data di database masih terlalu sedikit (minimal 10 baris). Model lama tetap aktif.",
+            "regression_metrics": reg_metrics,
+            "smell_metrics": smell_metrics
+        }

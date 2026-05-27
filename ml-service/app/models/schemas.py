@@ -4,13 +4,13 @@ class MaintenanceRequest(BaseModel):
     """Skema input untuk request estimasi waktu pengeringan sepatu."""
 
     kelembapan_awal: float = Field(
-        ..., ge=30.0, le=90.0, description="Kelembapan awal sepatu (%)"
+        ..., ge=10.0, le=90.0, description="Kelembapan awal sepatu (%)"
     )
     kelembapan_sekarang: float = Field(
         ..., ge=10.0, le=90.0, description="Kelembapan sepatu saat ini (%)"
     )
     suhu: float = Field(
-        ..., ge=30.0, le=70.0, description="Suhu pemanas (°C)"
+        ..., ge=15.0, le=70.0, description="Suhu pemanas (°C)"
     )
     jenis_bahan: int = Field(
         ..., ge=1, le=3, description="Jenis bahan sepatu (1: Kanvas, 2: Kulit, 3: Mesh)"

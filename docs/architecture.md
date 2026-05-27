@@ -220,35 +220,32 @@ Machine Learning pada sistem Smart Shoe IoT digunakan untuk:
 
 Sistem menerima data sensor dari perangkat IoT kemudian dikirim oleh Gateway Service (Node.js) ke ML Service (FastAPI) menggunakan HTTP REST API secara synchronous untuk diproses oleh model machine learning guna menghasilkan prediksi secara realtime.
 
-### 1. Klasifikasi Bau Menggunakan K-Nearest Neighbor (KNN)
+### 1. Klasifikasi Bau Menggunakan K-Means Clustering
 
 #### Tujuan
 
-Model KNN digunakan untuk menentukan kondisi sepatu berdasarkan data sensor.
+Model K-Means digunakan untuk menentukan kondisi tingkat bau sepatu berdasarkan data sensor.
 
 #### Input Feature
 
 Data yang digunakan:
 
-- Temperature
-- Humidity
-- Gas Level
-- Duration Usage
+- Gas Level (MQ-135)
+- Humidity (DHT22)
 
 #### Output
 
-Model menghasilkan label:
+Model menghasilkan kategori/label:
 
-- AMAN
-- LEMBAB
-- BAU
-- BAU_PARAH
+- Wangi (Cluster 0)
+- Normal (Cluster 1)
+- Bau (Cluster 2)
 
 #### Cara Kerja
 
-KNN bekerja dengan mencari beberapa data terdekat dari data baru berdasarkan jarak antar fitur.
+K-Means bekerja dengan mengelompokkan data sensor gas MQ-135 dan kelembapan saat ini secara objektif ke dalam 3 klaster optimal yang masing-masing merepresentasikan tingkat kesegaran sepatu (Wangi, Normal, Bau).
 
-Jika mayoritas tetangga memiliki label tertentu maka data baru akan mengikuti label tersebut.
+Model memetakan data baru ke klaster terdekat berdasarkan nilai centroid yang telah dipelajari selama proses training.
 
 Contoh:
 

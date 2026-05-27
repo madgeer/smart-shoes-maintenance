@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS devices (
     device_name VARCHAR(100) NOT NULL,
     device_code VARCHAR(50) NOT NULL UNIQUE,
     status VARCHAR(50) NOT NULL DEFAULT 'active',
+    control_mode VARCHAR(20) NOT NULL DEFAULT 'auto' CHECK (control_mode IN ('auto', 'manual')),
+    heater_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (heater_state IN ('ON', 'OFF')),
+    uv_light_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (uv_light_state IN ('ON', 'OFF')),
+    fan_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (fan_state IN ('ON', 'OFF')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
