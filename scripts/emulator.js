@@ -60,7 +60,8 @@ let physicalState = {
     uv_usage_duration: 0.0    // Durasi UV aktif (jam)
   },
   lastCommandId: 'N/A',
-  connectionStatus: 'MENGHUBUNGKAN...'
+  connectionStatus: 'MENGHUBUNGKAN...',
+  isWaitingForInput: false // State pengaman input terminal
 };
 
 const AMBIENT_TEMP = 25.0;
@@ -229,6 +230,9 @@ setInterval(() => {
 // 6. Tampilan Terminal Dashboard (CLI visual)
 // -------------------------------------------------------------------------
 function drawDashboard() {
+  // Jika sedang menunggu input interaktif, cegah layar di-clear/di-update otomatis
+  if (physicalState.isWaitingForInput) return;
+
   // Clear layar CLI
   console.clear();
   
@@ -284,6 +288,7 @@ function drawDashboard() {
   console.log(` \x1b[93m[2] Buat Sepatu Bau (Set gas MQ-135 ke 680 ppm)\x1b[0m`);
   console.log(` \x1b[96m[3] Bersihkan Manual (Set kelembapan ke 14% & gas ke 120 ppm)\x1b[0m`);
   console.log(` \x1b[95m[4] Ganti Kode Alat & ID Sepatu\x1b[0m`);
+  console.log(` \x1b[94m[5] Set Nilai Sensor Kustom (Dinamis)\x1b[0m`);
   console.log(` \x1b[31m[Q] Keluar dari Emulator\x1b[0m`);
   console.log(`================================================================`);
   process.stdout.write(' Pilihan Anda: ');
@@ -312,6 +317,7 @@ rl.on('line', (line) => {
     physicalState.actuators = { heater: 'OFF', uv_light: 'OFF', fan: 'OFF' };
     drawDashboard();
   } else if (choice === '4') {
+    physicalState.isWaitingForInput = true;
     rl.question('\n Masukkan Device Code baru (misal: ESP32-SHOE-001): ', (newDev) => {
       if (newDev.trim()) deviceCode = newDev.trim();
       rl.question(' Masukkan Shoe ID baru (angka): ', (newShoe) => {
@@ -322,6 +328,69 @@ rl.on('line', (line) => {
         client.end(true, () => {
           console.log('\n Menginisiasi ulang koneksi MQTT...');
           process.exit(0); // Exit dan jalankan ulang untuk reconnect
+        });
+      });
+    });
+  } else if (choice === '5') {
+    physicalState.isWaitingForInput = true;
+    console.clear();
+    console.log(`================================================================`);
+    console.log(` SET NILAI SENSOR KUSTOM (DINAMIS)                             `);
+    console.log(`================================================================`);
+    console.log(` * Tekan Enter langsung jika tidak ingin mengubah nilai sensor.  `);
+    console.log(` * Gunakan format angka desimal positif (contoh: 28.5 atau 60).  `);
+    console.log(`----------------------------------------------------------------`);
+    
+    rl.question(` Masukkan Suhu baru (°C) [Sekarang: ${physicalState.temperature.toFixed(1)} °C]: `, (tempStr) => {
+      let nextTemp = physicalState.temperature;
+      if (tempStr.trim() !== '') {
+        const val = parseFloat(tempStr.trim());
+        if (!isNaN(val) && val >= 0) {
+          nextTemp = val;
+        } else {
+          console.log(` \x1b[31m[!] Input tidak valid. Menggunakan nilai lama: ${nextTemp.toFixed(1)} °C\x1b[0m`);
+        }
+      }
+      
+      rl.question(` Masukkan Kelembapan baru (%) [Sekarang: ${physicalState.humidity.toFixed(1)} %]: `, (humStr) => {
+        let nextHum = physicalState.humidity;
+        if (humStr.trim() !== '') {
+          const val = parseFloat(humStr.trim());
+          if (!isNaN(val) && val >= 0 && val <= 100) {
+            nextHum = val;
+          } else {
+            console.log(` \x1b[31m[!] Input tidak valid (harus 0-100%). Menggunakan nilai lama: ${nextHum.toFixed(1)} %\x1b[0m`);
+          }
+        }
+        
+        rl.question(` Masukkan Kadar Gas MQ-135 baru (ppm) [Sekarang: ${physicalState.gas_level.toFixed(1)} ppm]: `, (gasStr) => {
+          let nextGas = physicalState.gas_level;
+          if (gasStr.trim() !== '') {
+            const val = parseFloat(gasStr.trim());
+            if (!isNaN(val) && val >= 0) {
+              nextGas = val;
+            } else {
+              console.log(` \x1b[31m[!] Input tidak valid. Menggunakan nilai lama: ${nextGas.toFixed(1)} ppm\x1b[0m`);
+            }
+          }
+          
+          // Simpan state sensor baru
+          physicalState.temperature = nextTemp;
+          physicalState.humidity = nextHum;
+          physicalState.gas_level = nextGas;
+          
+          console.log(`----------------------------------------------------------------`);
+          console.log(` \x1b[32m[SUKSES] Nilai sensor kustom berhasil diperbarui!\x1b[0m`);
+          console.log(` Suhu       : \x1b[1m${physicalState.temperature.toFixed(1)} °C\x1b[0m`);
+          console.log(` Kelembapan : \x1b[1m${physicalState.humidity.toFixed(1)} %\x1b[0m`);
+          console.log(` Gas MQ-135 : \x1b[1m${physicalState.gas_level.toFixed(1)} ppm\x1b[0m`);
+          console.log(`================================================================`);
+          console.log(` Layar dashboard akan disegarkan kembali dalam 1.5 detik...`);
+          
+          setTimeout(() => {
+            physicalState.isWaitingForInput = false;
+            drawDashboard();
+          }, 1500);
         });
       });
     });
