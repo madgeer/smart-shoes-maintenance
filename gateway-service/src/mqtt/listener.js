@@ -2,6 +2,7 @@ const db = require('../config/db');
 const mqttClient = require('../config/mqtt');
 const mlService = require('../services/ml');
 const wsManager = require('../websocket/socket');
+const { sendTelegramNotification } = require('../services/notification');
 
 // Inisialisasi MQTT Listener
 const initMqttListener = () => {
@@ -178,7 +179,7 @@ const initMqttListener = () => {
       // 8. Logika Peringatan Bau Parah & Notifikasi Otomatis
       if (smellPred.kategori === 'Bau' || humidity > 75.0) {
         let alertTitle = 'Peringatan Kelembapan Tinggi!';
-        let alertMsg = `Sepatu terdeteksi sangat lembap (${humidity}%). Direkomendasikan sterilisasi & pengeringan otomatis.`;
+        let alertMsg = `Sepatu terdeteksi sangat lembap (${humidity.toFixed(1)}%). Direkomendasikan sterilisasi & pengeringan otomatis.`;
         let alertType = 'WARNING';
 
         if (smellPred.kategori === 'Bau') {
@@ -202,6 +203,15 @@ const initMqttListener = () => {
           message: alertMsg,
           timestamp: logTimestamp
         });
+
+        // Kirim Notifikasi ke Telegram Bot
+        if (smellPred.kategori === 'Bau') {
+          const tgMessage = `🚨 *DETEKSI BAU SEPATU!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💨 MQ-135 Gas: *${gas_level.toFixed(1)} ppm* (Kondisi: *Bau*)\n💦 Kelembapan: *${humidity.toFixed(1)} %*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi bakteri.`;
+          sendTelegramNotification(tgMessage);
+        } else if (humidity > 75.0) {
+          const tgMessage = `⚠️ *PERINGATAN KELEMBAPAN TINGGI!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Basah Sekali)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSepatu terdeteksi basah sekali. Sistem mengaktifkan Heater dan Blower otomatis untuk memulai pengeringan.`;
+          sendTelegramNotification(tgMessage);
+        }
       }
 
       // 9. Kirim balik Perintah Aksi Aktuasi Fisik ke ESP32 via MQTT
@@ -235,6 +245,31 @@ const initMqttListener = () => {
         const heaterState = humidity > 15.0 ? 'ON' : 'OFF';
         const uvState = smellPred.kategori === 'Bau' ? 'ON' : 'OFF';
         const fanState = (humidity > 15.0 || smellPred.kategori === 'Bau') ? 'ON' : 'OFF';
+
+        // Deteksi transisi proses pengeringan selesai (Heater dari ON berubah menjadi OFF)
+        if (device.heater_state === 'ON' && heaterState === 'OFF') {
+          const finishedTitle = 'Proses Pengeringan Selesai!';
+          const finishedMsg = `Sepatu dengan ID #${shoeId} telah kering secara optimal (${humidity.toFixed(1)}%). Pemanas otomatis dinonaktifkan.`;
+
+          // Simpan notifikasi ke database PostgreSQL
+          await db.query(
+            `INSERT INTO notifications (user_id, title, message, notification_type) VALUES ($1, $2, $3, 'INFO')`,
+            [userId, finishedTitle, finishedMsg]
+          );
+
+          // Pancarkan via WebSocket
+          wsManager.sendAlertToUser(userId, 'notification:alert', {
+            user_id: userId,
+            notification_type: 'INFO',
+            title: finishedTitle,
+            message: finishedMsg,
+            timestamp: logTimestamp
+          });
+
+          // Kirim Notifikasi via Telegram Bot
+          const tgMsg = `✅ *PROSES PENGERINGAN SELESAI!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan Akhir: *${humidity.toFixed(1)} %* (Optimal & Kering)\n🌡️ Suhu Akhir: *${temperature.toFixed(1)} °C*\n\nSepatu telah kering sempurna dan siap digunakan kembali. Pemanas otomatis dimatikan oleh sistem.`;
+          sendTelegramNotification(tgMsg);
+        }
 
         // Simpan status aktuator otomatis yang baru terhitung ke database
         await db.query(
