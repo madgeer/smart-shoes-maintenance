@@ -22,7 +22,7 @@
 // -------------------------------------------------------------------------
 // CATATAN: Jangan gunakan "localhost" karena ESP32 tidak bisa mengakses localhost host.
 // Gunakan alamat IP komputer Anda yang menjalankan Docker/Mosquitto (contoh: "192.168.1.50")
-#define MQTT_BROKER     "192.168.0.188"       // Ganti dengan IP komputer Host Anda
+#define MQTT_BROKER     "192.168.0.195"       // Ganti dengan IP komputer Host Anda
 #define MQTT_PORT       1883
 #define MQTT_USER       ""                    // Kosongkan jika broker tanpa autentikasi
 #define MQTT_PASS       ""                    // Kosongkan jika broker tanpa autentikasi
@@ -34,7 +34,7 @@
 
 // 4. Konfigurasi Sensor (DHT22 & MQ-135)
 // -------------------------------------------------------------------------
-#define DHT_PIN         23                    // Pin data digital sensor DHT22
+#define DHT_PIN         4                     // Pin data digital sensor DHT22
 #define DHT_TYPE        DHT22                 // Tipe sensor DHT (DHT22 / DHT11)
 #define MQ135_PIN       34                    // Pin input analog ADC1 untuk MQ-135 (GPIO 34 aman dari interferensi WiFi)
 
@@ -43,16 +43,16 @@
 // Relay: Konfigurasi Active-Low (Relay aktif saat pin diberi nilai LOW)
 #define RELAY_ACTIVE_STATE   LOW              
 
-#define RELAY_HEATER_PIN     18               // Relay Ch 1: Plate Heater (PLT)
-#define RELAY_UV_PIN         19               // Relay Ch 2: Lampu UV Sterilisator
-#define RELAY_BLOWER_PIN     21               // Relay Ch 3: Blower Sirkulasi Utama
-#define RELAY_FAN_POWER_PIN  22               // Relay Ch 4: Power Line VCC Kipas PWM
+#define RELAY_HEATER_PIN     14               // Relay Ch 1: Plate Heater (PLT)
+#define RELAY_UV_PIN         12               // Relay Ch 2: Lampu UV Sterilisator
+#define RELAY_BLOWER_PIN     26               // Relay Ch 3: Blower Sirkulasi Utama
+#define RELAY_FAN_POWER_PIN  27               // Relay Ch 4: Power Line VCC Kipas PWM
 
-// PWM Fan: Sinyal kontrol kecepatan
-#define PWM_FAN_SPEED_PIN    25               // Pin kontrol kecepatan PWM Fan (GPIO 25)
-#define PWM_FAN_CHANNEL      0                // Channel LEDC ESP32 (0-15)
-#define PWM_FAN_FREQ         25000            // Frekuensi PWM standar industri untuk Fan (25 kHz)
-#define PWM_FAN_RES          8                // Resolusi PWM 8-bit (0-255)
+// // PWM Fan: Sinyal kontrol kecepatan
+// #define PWM_FAN_SPEED_PIN    25               // Pin kontrol kecepatan PWM Fan (GPIO 25)
+// #define PWM_FAN_CHANNEL      0                // Channel LEDC ESP32 (0-15)
+// #define PWM_FAN_FREQ         25000            // Frekuensi PWM standar industri untuk Fan (25 kHz)
+// #define PWM_FAN_RES          8                // Resolusi PWM 8-bit (0-255)
 
 // 6. Pengaturan Interval & Sinkronisasi
 // -------------------------------------------------------------------------

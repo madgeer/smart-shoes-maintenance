@@ -48,7 +48,7 @@ static void apply_safety_interlock() {
 
         if (fanSpeed < 180) {
             fanSpeed = 180; // Paksa kipas berputar minimal pada level sedang-tinggi
-            ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
+            // ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
             updated = true;
         }
 
@@ -69,11 +69,11 @@ void actuator_setup() {
     actuator_turn_all_off();
 
     // 3. Setup PWM Fan menggunakan module LEDC ESP32
-    Serial.printf("[ACTUATOR] Mengatur pin PWM Fan ke GPIO %d (Ch: %d)...\n", 
-                  PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    ledcSetup(PWM_FAN_CHANNEL, PWM_FAN_FREQ, PWM_FAN_RES);
-    ledcAttachPin(PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    ledcWrite(PWM_FAN_CHANNEL, 0); // Kecepatan awal 0
+    // Serial.printf("[ACTUATOR] Mengatur pin PWM Fan ke GPIO %d (Ch: %d)...\n", 
+    //               PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
+    // ledcSetup(PWM_FAN_CHANNEL, PWM_FAN_FREQ, PWM_FAN_RES);
+    // ledcAttachPin(PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
+    // ledcWrite(PWM_FAN_CHANNEL, 0); // Kecepatan awal 0
 
     Serial.println("[ACTUATOR] Seluruh komponen aktuator siap dikontrol.");
 }
@@ -126,7 +126,7 @@ void actuator_set_fan_speed(uint8_t speed) {
         fanSpeed = speed;
     }
 
-    ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
+    // ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
     Serial.printf("[ACTUATOR] Kecepatan Kipas PWM diatur ke: %d/255\n", fanSpeed);
 }
 
@@ -141,7 +141,7 @@ void actuator_turn_all_off() {
     write_relay(RELAY_UV_PIN, false);
     write_relay(RELAY_BLOWER_PIN, false);
     write_relay(RELAY_FAN_POWER_PIN, false);
-    ledcWrite(PWM_FAN_CHANNEL, 0);
+    // ledcWrite(PWM_FAN_CHANNEL, 0);
 
     Serial.println("[ACTUATOR] Seluruh aktuator dimatikan dengan aman.");
 }

@@ -124,6 +124,9 @@ void mqtt_loop(WiFiClient& wifiClient) {
         mqttClient.setClient(wifiClient);
         mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
         mqttClient.setCallback(mqtt_message_callback);
+
+         mqttClient.setBufferSize(1024);
+
         isClientConfigured = true;
     }
 
