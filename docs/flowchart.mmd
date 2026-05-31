@@ -1,0 +1,58 @@
+graph TD
+    %% Define Nodes and Relationships with safe double quotes to avoid parser errors
+    Start([Mulai: ESP32 Emulator / Perangkat Fisik]) --> ModeSensor{Mode Pengisian Sensor}
+    
+    ModeSensor -->|Simulasi Fisika Otomatis / Berkala| SensorAuto["Hitung Nilai Sensor Tiap 5 Detik"]
+    ModeSensor -->|Manual / Dinamis Menu 5| SensorCustom["User Ketik Nilai Suhu, Kelembapan, & Gas MQ-135"]
+    
+    SensorAuto --> PackPayload["Bungkus Payload Telemetri & Metrik"]
+    SensorCustom --> PackPayload
+    
+    PackPayload --> PublishMQTT["Publish ke Topik MQTT: v1/devices/:device_code/telemetry"]
+    
+    PublishMQTT --> Broker["MQTT Broker Mosquitto"]
+    
+    Broker -->|Forward Telemetri| Gateway["Gateway Service Node.js"]
+    
+    Gateway --> SaveDB["Simpan Log Sensor ke PostgreSQL: sensor_logs"]
+    Gateway --> WSRaw["Pancarkan Nilai Sensor Realtime via WebSocket ke Dashboard"]
+    
+    Gateway --> CallML["Tembak API Inferensi ML Service Python"]
+    
+    CallML --> MLSmell["1. Klasifikasi Bau K-Means"]
+    CallML --> MLDrying["2. Estimasi Waktu Pengeringan Regression"]
+    
+    MLSmell --> SavePred["Simpan Hasil Analisis ke PostgreSQL: predictions"]
+    MLDrying --> SavePred
+    
+    SavePred --> WSPred["Pancarkan Hasil Prediksi ML via WebSocket ke Dashboard"]
+    
+    WSPred --> CheckTriggers{Evaluasi Kriteria Alert & Notifikasi}
+    
+    %% Triggers Check (Safe text without special characters like '>' or '%')
+    CheckTriggers -->|Kadar Bau Di Atas 600 ppm| SmellAlert["Kirim Alert 'Deteksi Bau' via WebSocket & Bot Telegram"]
+    CheckTriggers -->|Kelembapan Di Atas 75 Persen| WetAlert["Kirim Alert 'Kelembapan Tinggi' via WebSocket & Bot Telegram"]
+    CheckTriggers -->|Heater ON ke OFF atau Kelembapan Kering| DryAlert["Kirim Notifikasi 'Pengeringan Selesai' via WebSocket & Bot Telegram"]
+    CheckTriggers -->|Kondisi Normal| NormalFlow["Lewati Pengiriman Alert"]
+    
+    SmellAlert --> CalcAutoActuators["Kalkulasi Status Aktuator Mode AUTO"]
+    WetAlert --> CalcAutoActuators
+    DryAlert --> CalcAutoActuators
+    NormalFlow --> CalcAutoActuators
+    
+    %% Actuation Control
+    CalcAutoActuators --> ModeControl{Mode Kontrol Alat}
+    
+    ModeControl -->|Manual| ActManual["Kunci Aktuator Sesuai Pilihan User di Dashboard"]
+    ModeControl -->|Auto| ActAuto["Set Aktuator Otomatis: Heater = f(Kelembapan), UV = f(Bau), Kipas = f(Heater/UV)"]
+    
+    ActManual --> SaveDeviceState["Update Status Aktuator di PostgreSQL: devices"]
+    ActAuto --> SaveDeviceState
+    
+    SaveDeviceState --> PublishCommands["Publish Perintah ke Topik MQTT: v1/devices/:device_code/commands"]
+    
+    PublishCommands --> Broker
+    
+    Broker -->|Terima Perintah Aktuator| ESPRecv["ESP32 Emulator Update Status Heater, UV, & Kipas"]
+    
+    ESPRecv --> End([Selesai])

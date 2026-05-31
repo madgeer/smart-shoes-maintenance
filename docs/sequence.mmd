@@ -1,0 +1,83 @@
+sequenceDiagram
+    autonumber
+    actor User as Pengguna / User
+    participant ESP32 as ESP32 Device / Emulator
+    participant Broker as MQTT Broker (Mosquitto)
+    participant Gateway as Gateway Service (Node.js)
+    participant Telegram as Telegram Bot API
+    participant ML as ML Service (FastAPI)
+    participant DB as PostgreSQL
+    participant Client as Dashboard Client (React)
+
+    %% Koneksi awal
+    Note over User, Client: Inisialisasi Dashboard & WebSocket
+    User->>Client: Buka Web Dashboard
+    Client->>Gateway: Koneksi Handshake WS (Kirim JWT Token)
+    Gateway-->>Client: WebSocket Terkoneksi (Connected)
+    Client->>Gateway: Emit subscribe:device untuk ESP32-SHOE-001
+
+    %% Input Sensor
+    rect rgb(240, 248, 255)
+        Note over User, ESP32: Input Sensor Dinamis pada Emulator
+        User->>ESP32: Pilih Menu 5 & Ketik Nilai Sensor Kustom
+        ESP32->>ESP32: Validasi & Simpan State Kustom Baru
+    end
+
+    %% Transmisi MQTT
+    Note over ESP32, Gateway: Pengiriman Telemetri Sensor berkala via MQTT
+    ESP32->>Broker: Publish telemetri ke topik v1/devices/ESP32-SHOE-001/telemetry
+    Broker->>Gateway: Forward MQTT Message (Payload Sensor & Metrik)
+
+    %% Database & WebSocket Raw
+    Gateway->>DB: INSERT INTO sensor_logs (Suhu, Kelembapan, Gas, Durasi)
+    DB-->>Gateway: Return log_id & created_at (logTimestamp)
+    Gateway-->>Client: Emit sensor:update (Raw Sensor Realtime)
+
+    %% ML Processing
+    rect rgb(245, 245, 245)
+        Note over Gateway, ML: Proses Inferensi Machine Learning (Paralel)
+        Gateway->>ML: POST /predict/smell (gas_level, humidity)
+        ML-->>Gateway: Return hasil prediksi bau (kategori: Bau)
+        
+        Gateway->>DB: Ambil kelembapan awal & jenis bahan sepatu
+        DB-->>Gateway: Return kelembapanAwal, jenisBahan
+        
+        Gateway->>ML: POST /predict/drying (kelembapanAwal, humidity, temperature, jenisBahan, gas_level)
+        ML-->>Gateway: Return sisa waktu pengeringan & status
+        
+        Gateway->>DB: INSERT INTO predictions (sensor_log_id, prediction_label, estimated_drying_time, drying_status)
+    end
+
+    Gateway-->>Client: Emit prediction:update (Hasil K-Means & Regression)
+
+    %% Notifikasi & Telegram Bot
+    rect rgb(255, 240, 245)
+        Note over Gateway, Telegram: Evaluasi Notifikasi Peringatan & Telegram Bot
+        
+        alt Kasus A: Terdeteksi Bau Sepatu (Gas > 600 ppm)
+            Gateway->>DB: Simpan Notifikasi Alert DANGER
+            Gateway-->>Client: Emit notification:alert (Tampilkan Alert Toast)
+            Gateway->>Telegram: POST /sendMessage (Notifikasi Bau Sepatu Kustom)
+            Telegram-->>User: Kirim pesan Telegram (🚨 DETEKSI BAU SEPATU!)
+            
+        else Kasus B: Kelembapan Sangat Tinggi (> 75%)
+            Gateway->>DB: Simpan Notifikasi Alert WARNING
+            Gateway-->>Client: Emit notification:alert (Tampilkan Alert Toast)
+            Gateway->>Telegram: POST /sendMessage (Peringatan Kelembapan Kustom)
+            Telegram-->>User: Kirim pesan Telegram (⚠️ PERINGATAN KELEMBAPAN TINGGI!)
+            
+        else Kasus C: Transisi Selesai Pengeringan (Heater ON ke OFF)
+            Gateway->>DB: Simpan Notifikasi Sukses INFO
+            Gateway-->>Client: Emit notification:alert (Tampilkan Success Toast)
+            Gateway->>Telegram: POST /sendMessage (Laporan Sukses Pengeringan Kustom)
+            Telegram-->>User: Kirim pesan Telegram (✅ PROSES PENGERINGAN SELESAI!)
+        end
+    end
+
+    %% Perintah Balik Actuator
+    Note over Gateway, ESP32: Pengiriman Perintah Kontrol Aktuator (Auto Mode)
+    Gateway->>DB: UPDATE devices SET heater_state, uv_light_state, fan_state
+    Gateway->>Broker: Publish perintah ke topik v1/devices/ESP32-SHOE-001/commands
+    Broker->>ESP32: Forward MQTT Message (Instruksi Heater, UV, & Kipas)
+    Gateway-->>Client: Emit device:command (Sync visual UI tombol di web)
+    ESP32->>ESP32: Jalankan Heater, Lampu UV, & Kipas sesuai instruksi Gateway
