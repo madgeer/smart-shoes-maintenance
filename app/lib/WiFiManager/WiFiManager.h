@@ -1,28 +1,27 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - WIFI MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - WIFI MANAGER
  * =========================================================================
  * File: WiFiManager.h
- * Deskripsi: Deklarasi fungsi sederhana untuk mengelola koneksi WiFi.
- *            Sengaja dibuat tanpa Class agar mudah dipahami pemula.
+ * Deskripsi: Deklarasi modul wifi untuk ESP32.
  * =========================================================================
  */
 
-#ifndef WIFIMANAGER_H
-#define WIFIMANAGER_H
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
 
 #include <Arduino.h>
 
-// Fungsi inisialisasi WiFi
+// Inisialisasi koneksi WiFi awal
 void wifi_setup();
 
-// Fungsi loop berkala untuk menjaga koneksi (non-blocking)
+// Loop pemantauan status koneksi WiFi secara non-blocking
 void wifi_loop();
 
 // Cek apakah WiFi terhubung
 bool wifi_is_connected();
 
-// Dapatkan alamat IP lokal perangkat
+// Ambil string alamat IP lokal perangkat
 String wifi_get_ip();
 
-#endif // WIFIMANAGER_H
+#endif // WIFI_MANAGER_H

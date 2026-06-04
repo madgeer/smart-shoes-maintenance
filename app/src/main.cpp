@@ -1,10 +1,9 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - MAIN FIRMWARE (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - MAIN FIRMWARE
  * =========================================================================
  * File: main.cpp
- * Deskripsi: Berkas utama penggerak sistem. Dibuat sesederhana mungkin
- *            menggunakan gaya prosedural C/Arduino tanpa OOP Class.
+ * Deskripsi: Berkas utama penggerak sistem ESP32.
  * =========================================================================
  */
 
@@ -16,7 +15,7 @@
 #include <MetricsManager.h>
 #include <MQTTManager.h>
 
-// Objek Jaringan Client dari bawaan library WiFi.h
+// Objek Jaringan Client bawaan library WiFi.h
 WiFiClient wifiClient;
 
 // Variabel Pencatat Waktu
@@ -38,14 +37,13 @@ void handle_gateway_command(const char* commandId, const char* heaterState,
     bool statusUV     = (strcmp(uvState, "ON") == 0);
     bool statusFan    = (strcmp(fanState, "ON") == 0);
 
-    // Aktifkan Relay Pemanas, UV, dan Blower
+    // Aktifkan Relay Pemanas, UV, dan Kipas Power
     actuator_set_heater(statusHeater);
     actuator_set_uv(statusUV);
     actuator_set_blower(statusFan);
 
-    // Aktifkan Daya Kipas PWM & Set Kecepatan
-    actuator_set_fan_power(statusFan);
-    actuator_set_fan_speed(statusFan ? 180 : 0); // Kipas berputar level 180 jika ON
+    // Aktifkan Kecepatan Kipas (Simulasi/Dummy kompatibilitas)
+    actuator_set_fan_speed(statusFan ? NORMAL_FAN_SPEED : 0);
 
     Serial.println("[MAIN] Perintah sukses dijalankan.");
 }
@@ -59,10 +57,10 @@ void setup() {
     delay(1000);
     
     Serial.println("\n=============================================================");
-    Serial.println(" SMART SHOE MAINTENANCE FIRMWARE - GAYA SEDERHANA RAMAH PEMULA");
+    Serial.println(" SMART SHOE MAINTENANCE FIRMWARE - ESP32 SYSTEM STARTUP");
     Serial.println("=============================================================");
 
-    // 2. Setup Modul Aktuator (Relay & PWM Pin)
+    // 2. Setup Modul Aktuator (Relay)
     actuator_setup();
 
     // 3. Setup Modul Sensor (DHT22 & MQ-135)
@@ -108,7 +106,7 @@ void loop() {
         metrics_update(
             elapsedSeconds, 
             actuator_is_heater_on(), 
-            actuator_is_blower_on() || actuator_is_fan_power_on(), 
+            actuator_is_blower_on(), 
             actuator_is_uv_on()
         );
     }
@@ -146,10 +144,9 @@ void loop() {
                       wifi_get_ip().c_str());
         Serial.printf("   - SENSOR   : Suhu: %.1f °C | Lembap: %.1f %% | Gas Bau: %.1f ppm\n", 
                       sensor_read_temperature(), sensor_read_humidity(), sensor_read_gas_level());
-        Serial.printf("   - AKTUATOR : Heater: %s | UV: %s | Blower: %s | Fan Power: %s (PWM: %d)\n", 
+        Serial.printf("   - AKTUATOR : Heater: %s | UV: %s | Kipas: %s (Simulasi PWM: %d)\n", 
                       actuator_is_heater_on() ? "MENYALA" : "MATI",
                       actuator_is_uv_on() ? "MENYALA" : "MATI",
-                      actuator_is_blower_on() ? "MENYALA" : "MATI",
                       actuator_is_fan_power_on() ? "MENYALA" : "MATI",
                       actuator_get_fan_speed());
         Serial.printf("   - METRIK   : Total Aktif: %.4f jam | Kipas: %.4f jam | UV: %.4f jam\n",

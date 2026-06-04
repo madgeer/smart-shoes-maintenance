@@ -1,9 +1,8 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - WIFI MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - WIFI MANAGER IMPLEMENTATION
  * =========================================================================
  * File: WiFiManager.cpp
- * Deskripsi: Implementasi fungsi WiFi menggunakan variabel global sederhana.
  * =========================================================================
  */
 
@@ -11,39 +10,38 @@
 #include <WiFi.h>
 #include <Config.h>
 
-// Variabel lokal untuk mencatat waktu reconnect terakhir
-unsigned long lastWifiReconnectAttempt = 0;
-const unsigned long wifiReconnectInterval = 10000; // Coba reconnect setiap 10 detik
+static unsigned long lastWifiCheck = 0;
 
 void wifi_setup() {
-    // Atur mode ke Station
-    WiFi.mode(WIFI_STA);
-    
     Serial.println("\n[WIFI] Memulai koneksi WiFi...");
-    Serial.printf("[WIFI] Menghubungkan ke SSID: %s...\n", WIFI_SSID);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     
-    // Mulai koneksi asinkron (non-blocking)
-    if (strlen(WIFI_PASSWORD) > 0) {
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // Tunggu koneksi saat startup (maksimal 10 detik)
+    int retries = 0;
+    while (WiFi.status() != WL_CONNECTED && retries < 20) {
+        delay(500);
+        Serial.print(".");
+        retries++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("\n[WIFI] Sukses terhubung! IP: %s\n", WiFi.localIP().toString().c_str());
     } else {
-        WiFi.begin(WIFI_SSID);
+        Serial.println("\n[WIFI] Gagal terhubung pada startup. Reconnect loop aktif di background.");
     }
 }
 
 void wifi_loop() {
-    // Jika koneksi terputus, coba hubungkan kembali setiap 10 detik secara asinkron
-    if (!wifi_is_connected()) {
-        unsigned long currentMillis = millis();
-        if (currentMillis - lastWifiReconnectAttempt >= wifiReconnectInterval) {
-            lastWifiReconnectAttempt = currentMillis;
-            Serial.println("[WIFI] Koneksi terputus! Mencoba hubungkan kembali...");
-            
+    unsigned long currentMillis = millis();
+    // Periksa status WiFi secara berkala setiap 10 detik (non-blocking)
+    if (currentMillis - lastWifiCheck >= 10000) {
+        lastWifiCheck = currentMillis;
+        
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("[WIFI] Koneksi terputus! Mencoba menghubungkan kembali...");
             WiFi.disconnect();
-            if (strlen(WIFI_PASSWORD) > 0) {
-                WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-            } else {
-                WiFi.begin(WIFI_SSID);
-            }
+            WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         }
     }
 }

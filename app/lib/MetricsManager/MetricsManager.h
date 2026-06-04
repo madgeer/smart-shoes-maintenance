@@ -1,33 +1,29 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - METRICS MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - METRICS MANAGER
  * =========================================================================
  * File: MetricsManager.h
- * Deskripsi: Deklarasi fungsi sederhana untuk mencatat & menyimpan metrik
- *            pemakaian secara persisten ke NVS Flash ESP32.
+ * Deskripsi: Deklarasi modul pencatat metrik durasi pemakaian (NVS Flash).
  * =========================================================================
  */
 
-#ifndef METRICSMANAGER_H
-#define METRICSMANAGER_H
+#ifndef METRICS_MANAGER_H
+#define METRICS_MANAGER_H
 
 #include <Arduino.h>
 
-// Inisialisasi awal NVS dan pemuatan data metrik tersimpan
+// Inisialisasi NVS Flash untuk memuat metrik tersimpan
 void metrics_setup();
 
-// Perbarui metrik waktu berjalan di RAM
-void metrics_update(float elapsedSeconds, bool heaterActive, bool fanActive, bool uvActive);
+// Memperbarui metrik di RAM dan menyinkronkan ke Flash berkala
+void metrics_update(float elapsedSeconds, bool heaterOn, bool fanOn, bool uvOn);
 
-// Sinkronisasi data RAM ke Flash NVS
+// Memaksa sinkronisasi metrik dari RAM ke Flash NVS saat ini
 void metrics_sync_to_flash();
 
-// Mengosongkan/Reset total data metrik di Flash NVS
-void metrics_reset();
-
-// Getter untuk mendapatkan data metrik terakumulasi (satuan jam)
+// Ambil durasi pemakaian (satuan jam)
 float metrics_get_duration_usage();
 float metrics_get_fan_usage_duration();
 float metrics_get_uv_usage_duration();
 
-#endif // METRICSMANAGER_H
+#endif // METRICS_MANAGER_H

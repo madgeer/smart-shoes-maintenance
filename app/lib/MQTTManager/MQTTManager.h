@@ -1,32 +1,29 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - MQTT MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - MQTT MANAGER
  * =========================================================================
  * File: MQTTManager.h
- * Deskripsi: Deklarasi fungsi sederhana untuk menangani protokol MQTT & JSON.
+ * Deskripsi: Deklarasi modul komunikasi MQTT untuk ESP32.
  * =========================================================================
  */
 
-#ifndef MQTTMANAGER_H
-#define MQTTMANAGER_H
+#ifndef MQTT_MANAGER_H
+#define MQTT_MANAGER_H
 
 #include <Arduino.h>
 #include <WiFi.h>
 
-// Inisialisasi awal topik dan Client ID
+// Inisialisasi konfigurasi MQTT
 void mqtt_setup();
 
-// Loop berkala untuk menjaga koneksi ke broker & memproses antrean pesan
+// Memelihara koneksi dan memproses event loop MQTT
 void mqtt_loop(WiFiClient& wifiClient);
 
-// Cek status koneksi ke broker
+// Publikasi data telemetri & metrik ke broker MQTT
+void mqtt_publish_telemetry(float temp, float hum, float gas, 
+                            float durTotal, float durFan, float durUV);
+
+// Cek apakah terhubung ke broker MQTT
 bool mqtt_is_connected();
 
-// Publikasikan data telemetri berformat JSON
-bool mqtt_publish_telemetry(float temp, float hum, float gas, 
-                            float duration, float fanDur, float uvDur);
-
-// Publikasikan status online / offline
-bool mqtt_publish_status(const char* status);
-
-#endif // MQTTMANAGER_H
+#endif // MQTT_MANAGER_H
