@@ -37,14 +37,8 @@ static void apply_safety_interlock() {
             updated = true;
         }
 
-<<<<<<< HEAD
-        if (fanSpeed < 180) {
-            fanSpeed = 180; // Paksa kipas berputar minimal pada level sedang-tinggi
-            ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
-=======
         if (fanSpeedSetting < NORMAL_FAN_SPEED) {
             fanSpeedSetting = NORMAL_FAN_SPEED;
->>>>>>> b651717 (Refactor and enhance Smart Shoes Maintenance firmware)
             updated = true;
         }
 
@@ -63,16 +57,6 @@ void actuator_setup() {
     // Matikan semua beban saat awal dinyalakan
     actuator_turn_all_off();
 
-<<<<<<< HEAD
-    // 3. Setup PWM Fan menggunakan module LEDC ESP32
-    Serial.printf("[ACTUATOR] Mengatur pin PWM Fan ke GPIO %d (Ch: %d)...\n", 
-                  PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    ledcSetup(PWM_FAN_CHANNEL, PWM_FAN_FREQ, PWM_FAN_RES);
-    ledcAttachPin(PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    ledcWrite(PWM_FAN_CHANNEL, 0); // Kecepatan awal 0
-
-=======
->>>>>>> b651717 (Refactor and enhance Smart Shoes Maintenance firmware)
     Serial.println("[ACTUATOR] Seluruh komponen aktuator siap dikontrol.");
 }
 
@@ -116,13 +100,7 @@ void actuator_set_fan_speed(uint8_t speed) {
     } else {
         fanSpeedSetting = speed;
     }
-<<<<<<< HEAD
-
-    ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
-    Serial.printf("[ACTUATOR] Kecepatan Kipas PWM diatur ke: %d/255\n", fanSpeed);
-=======
     Serial.printf("[ACTUATOR] Kecepatan Kipas diatur ke: %d/255\n", fanSpeedSetting);
->>>>>>> b651717 (Refactor and enhance Smart Shoes Maintenance firmware)
 }
 
 void actuator_turn_all_off() {
@@ -134,10 +112,6 @@ void actuator_turn_all_off() {
     write_relay(RELAY_HEATER_PIN, false);
     write_relay(RELAY_UV_PIN, false);
     write_relay(RELAY_FAN_POWER_PIN, false);
-<<<<<<< HEAD
-    ledcWrite(PWM_FAN_CHANNEL, 0);
-=======
->>>>>>> b651717 (Refactor and enhance Smart Shoes Maintenance firmware)
 
     Serial.println("[ACTUATOR] Seluruh aktuator dimatikan dengan aman.");
 }

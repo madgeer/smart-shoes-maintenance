@@ -93,19 +93,10 @@ static bool mqtt_reconnect() {
 }
 
 void mqtt_loop(WiFiClient& wifiClient) {
-<<<<<<< HEAD
-    // Konfigurasi client pertama kali dijalankan
-    if (!isClientConfigured) {
-        mqttClient.setClient(wifiClient);
-        mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
-        mqttClient.setCallback(mqtt_message_callback);
-        isClientConfigured = true;
-=======
     static bool clientInitialized = false;
     if (!clientInitialized) {
         client.setClient(wifiClient);
         clientInitialized = true;
->>>>>>> b651717 (Refactor and enhance Smart Shoes Maintenance firmware)
     }
     
     if (!client.connected()) {
