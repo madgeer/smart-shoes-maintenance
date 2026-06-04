@@ -1,21 +1,18 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - ACTUATOR MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - ACTUATOR MANAGER IMPLEMENTATION
  * =========================================================================
  * File: ActuatorManager.cpp
- * Deskripsi: Pustaka kontrol aktuator menggunakan fungsi dan variabel global.
  * =========================================================================
  */
 
 #include "ActuatorManager.h"
 #include <Config.h>
 
-// Variabel status global (gaya pemula)
 static bool heaterState = false;
 static bool uvState = false;
-static bool blowerState = false;
 static bool fanPowerState = false;
-static uint8_t fanSpeed = 0;
+static uint8_t fanSpeedSetting = 0;
 
 // Fungsi pembantu lokal untuk menyalakan/mematikan relay secara fisik
 static void write_relay(uint8_t pin, bool active) {
@@ -28,52 +25,37 @@ static void write_relay(uint8_t pin, bool active) {
     }
 }
 
-// Fungsi pengaman internal agar Plate Heater tidak meleleh (overheating)
+// Fungsi keselamatan internal agar plate heater tidak meleleh (overheating)
 static void apply_safety_interlock() {
     if (heaterState) {
         bool updated = false;
 
-        // Jika Heater menyala, Blower dan Kipas PWM WAJIB ikut menyala!
-        if (!blowerState) {
-            blowerState = true;
-            write_relay(RELAY_BLOWER_PIN, true);
-            updated = true;
-        }
-
+        // Jika Heater menyala, Kipas/Blower sirkulasi udara WAJIB ikut menyala!
         if (!fanPowerState) {
             fanPowerState = true;
             write_relay(RELAY_FAN_POWER_PIN, true);
             updated = true;
         }
 
-        if (fanSpeed < 180) {
-            fanSpeed = 180; // Paksa kipas berputar minimal pada level sedang-tinggi
-            // ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
+        if (fanSpeedSetting < NORMAL_FAN_SPEED) {
+            fanSpeedSetting = NORMAL_FAN_SPEED;
             updated = true;
         }
 
         if (updated) {
-            Serial.println("[ACTUATOR] 🛡️ SAFETY INTERLOCK: Heater Aktif! Blower & Kipas PWM otomatis dinyalakan untuk sirkulasi panas.");
+            Serial.println("[ACTUATOR] 🛡️ SAFETY INTERLOCK: Heater Aktif! Kipas otomatis dihidupkan untuk sirkulasi panas.");
         }
     }
 }
 
 void actuator_setup() {
-    // 1. Atur ke-4 pin Relay sebagai output digital
+    // Atur pin-pin Relay sebagai output digital
     pinMode(RELAY_HEATER_PIN, OUTPUT);
     pinMode(RELAY_UV_PIN, OUTPUT);
-    pinMode(RELAY_BLOWER_PIN, OUTPUT);
     pinMode(RELAY_FAN_POWER_PIN, OUTPUT);
 
-    // 2. Matikan semua beban saat awal dinyalakan
+    // Matikan semua beban saat awal dinyalakan
     actuator_turn_all_off();
-
-    // 3. Setup PWM Fan menggunakan module LEDC ESP32
-    // Serial.printf("[ACTUATOR] Mengatur pin PWM Fan ke GPIO %d (Ch: %d)...\n", 
-    //               PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    // ledcSetup(PWM_FAN_CHANNEL, PWM_FAN_FREQ, PWM_FAN_RES);
-    // ledcAttachPin(PWM_FAN_SPEED_PIN, PWM_FAN_CHANNEL);
-    // ledcWrite(PWM_FAN_CHANNEL, 0); // Kecepatan awal 0
 
     Serial.println("[ACTUATOR] Seluruh komponen aktuator siap dikontrol.");
 }
@@ -94,60 +76,48 @@ void actuator_set_uv(bool on) {
 }
 
 void actuator_set_blower(bool on) {
-    // PROTEKSI: Jangan matikan blower utama jika heater pemanas masih menyala!
-    if (heaterState && !on) {
-        Serial.println("[ACTUATOR] WARNING: Keamanan! Motor Blower harus tetap ON karena Heater sedang menyala.");
-        return;
-    }
-
-    blowerState = on;
-    write_relay(RELAY_BLOWER_PIN, blowerState);
-    Serial.printf("[ACTUATOR] Motor Blower diatur ke: %s\n", blowerState ? "ON" : "OFF");
+    // Karena pin blower fisik disatukan dengan Kipas utama di GPIO 27 pada wiring.md:
+    actuator_set_fan_power(on);
 }
 
 void actuator_set_fan_power(bool on) {
-    // PROTEKSI: Jangan matikan daya kipas PWM jika heater pemanas masih menyala!
+    // PROTEKSI: Jangan matikan kipas pendingin jika heater masih menyala!
     if (heaterState && !on) {
-        Serial.println("[ACTUATOR] WARNING: Keamanan! Daya Kipas PWM harus tetap ON karena Heater sedang menyala.");
+        Serial.println("[ACTUATOR] WARNING: Keamanan! Daya Kipas harus tetap ON karena Heater sedang menyala.");
         return;
     }
 
     fanPowerState = on;
     write_relay(RELAY_FAN_POWER_PIN, fanPowerState);
-    Serial.printf("[ACTUATOR] Daya Kipas PWM diatur ke: %s\n", fanPowerState ? "ON" : "OFF");
+    Serial.printf("[ACTUATOR] Kipas Blower diatur ke: %s\n", fanPowerState ? "ON" : "OFF");
 }
 
 void actuator_set_fan_speed(uint8_t speed) {
-    // PROTEKSI: Kipas PWM tidak boleh diam/terlalu lambat jika heater menyala!
-    if (heaterState && speed < 120) {
-        Serial.printf("[ACTUATOR] WARNING: Keamanan! Kipas PWM dipaksa kecepatan 120 (dari permintaan %d) karena Heater aktif.\n", speed);
-        fanSpeed = 120;
+    // PROTEKSI: Kipas tidak boleh diam jika heater aktif!
+    if (heaterState && speed < MIN_FAN_SPEED) {
+        Serial.printf("[ACTUATOR] WARNING: Keamanan! Kipas dipaksa kecepatan %d karena Heater aktif.\n", MIN_FAN_SPEED);
+        fanSpeedSetting = MIN_FAN_SPEED;
     } else {
-        fanSpeed = speed;
+        fanSpeedSetting = speed;
     }
-
-    // ledcWrite(PWM_FAN_CHANNEL, fanSpeed);
-    Serial.printf("[ACTUATOR] Kecepatan Kipas PWM diatur ke: %d/255\n", fanSpeed);
+    Serial.printf("[ACTUATOR] Kecepatan Kipas diatur ke: %d/255\n", fanSpeedSetting);
 }
 
 void actuator_turn_all_off() {
     heaterState = false;
     uvState = false;
-    blowerState = false;
     fanPowerState = false;
-    fanSpeed = 0;
+    fanSpeedSetting = 0;
 
     write_relay(RELAY_HEATER_PIN, false);
     write_relay(RELAY_UV_PIN, false);
-    write_relay(RELAY_BLOWER_PIN, false);
     write_relay(RELAY_FAN_POWER_PIN, false);
-    // ledcWrite(PWM_FAN_CHANNEL, 0);
 
     Serial.println("[ACTUATOR] Seluruh aktuator dimatikan dengan aman.");
 }
 
 bool actuator_is_heater_on() { return heaterState; }
 bool actuator_is_uv_on() { return uvState; }
-bool actuator_is_blower_on() { return blowerState; }
+bool actuator_is_blower_on() { return fanPowerState; } // Disamakan dengan fanPowerState
 bool actuator_is_fan_power_on() { return fanPowerState; }
-uint8_t actuator_get_fan_speed() { return fanSpeed; }
+uint8_t actuator_get_fan_speed() { return fanSpeedSetting; }

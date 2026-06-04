@@ -1,72 +1,50 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - SENSOR MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - SENSOR MANAGER IMPLEMENTATION
  * =========================================================================
  * File: SensorManager.cpp
- * Deskripsi: Pustaka pembacaan sensor menggunakan fungsi global sederhana.
  * =========================================================================
  */
 
 #include "SensorManager.h"
-#include <DHT.h>
 #include <Config.h>
+#include <DHT.h>
 
-// Inisialisasi Objek DHT secara statis (gaya Arduino standar)
-DHT dht(DHT_PIN, DHT_TYPE);
-
-// Fungsi internal pembantu untuk meratakan pembacaan ADC (moving average)
-static float filter_analog_read(uint8_t pin, int samples) {
-    long sum = 0;
-    for (int i = 0; i < samples; i++) {
-        sum += analogRead(pin);
-        delay(5); // Jeda singkat agar ADC stabil
-    }
-    return (float)sum / samples;
-}
+static DHT dht(DHT_PIN, DHT_TYPE);
 
 void sensor_setup() {
-    Serial.println("[SENSOR] Mengaktifkan sensor DHT22...");
+    Serial.printf("[SENSOR] Menginisialisasi DHT22 pada GPIO %d...\n", DHT_PIN);
     dht.begin();
     
+    Serial.printf("[SENSOR] Mengatur pin analog input MQ-135 pada GPIO %d...\n", MQ135_PIN);
     pinMode(MQ135_PIN, INPUT);
-    Serial.println("[SENSOR] Sensor MQ-135 dan DHT22 siap.");
+    
+    Serial.println("[SENSOR] Seluruh modul sensor siap dibaca.");
 }
 
 float sensor_read_temperature() {
     float t = dht.readTemperature();
-    
-    // Jika DHT22 tidak terbaca (NaN), berikan fallback suhu ruangan aman
+    // Jika pembacaan gagal (NaN), berikan nilai default ruangan 25.0 °C
     if (isnan(t)) {
-        Serial.println("[SENSOR] WARNING: Gagal membaca suhu DHT22! Menggunakan fallback 25.0 °C.");
-        return 25.0;
+        return 25.0f;
     }
     return t;
 }
 
 float sensor_read_humidity() {
     float h = dht.readHumidity();
-    
-    // Jika DHT22 tidak terbaca (NaN), berikan fallback kelembapan sedang aman
+    // Jika pembacaan gagal (NaN), berikan nilai default kelembapan 50.0 %
     if (isnan(h)) {
-        Serial.println("[SENSOR] WARNING: Gagal membaca kelembapan DHT22! Menggunakan fallback 50.0 %.");
-        return 50.0;
+        return 50.0f;
     }
     return h;
 }
 
 float sensor_read_gas_level() {
-    // Saring noise pembacaan analog dari pin MQ-135 dengan rata-rata 10 kali baca
-    float rawAverage = filter_analog_read(MQ135_PIN, 10);
+    // Membaca ADC 12-bit (0-4095) bawaan ESP32
+    int adcVal = analogRead(MQ135_PIN);
     
-    // Jika sensor terlepas atau terbaca 0, berikan nilai aman 150 ppm (udara bersih)
-    if (rawAverage <= 0.1) {
-        return 150.0;
-    }
-    
-    // Konversi nilai ADC (0-4095) ke simulasi nilai PPM (100 - 1000) secara linier
-    float ppmSimulated = (rawAverage / 4095.0) * 1000.0;
-    
-    if (ppmSimulated < 120.0) ppmSimulated = 120.0;
-    
-    return ppmSimulated;
+    // Konversi sederhana ADC ke rentang perkiraan kadar gas ppm (100 - 1000 ppm)
+    float ppm = 100.0f + (adcVal / 4095.0f) * 900.0f;
+    return ppm;
 }

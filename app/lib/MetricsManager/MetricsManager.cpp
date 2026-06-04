@@ -1,95 +1,70 @@
 /**
  * =========================================================================
- * SMART SHOES MAINTENANCE - METRICS MANAGER (RAMAH PEMULA)
+ * SMART SHOES MAINTENANCE - METRICS MANAGER IMPLEMENTATION
  * =========================================================================
  * File: MetricsManager.cpp
- * Deskripsi: Pustaka pencatatan metrik persisten menggunakan fungsi global.
  * =========================================================================
  */
 
 #include "MetricsManager.h"
-#include <Preferences.h>
 #include <Config.h>
+#include <Preferences.h>
 
-// Objek penyimpan data bawaan ESP32 dan variabel global RAM
 static Preferences prefs;
-static float durationUsage = 0.0f;
-static float fanUsageDuration = 0.0f;
-static float uvUsageDuration = 0.0f;
-static unsigned long lastSyncMillis = 0;
+
+static float durationTotal = 0.0f;
+static float durationFan = 0.0f;
+static float durationUV = 0.0f;
+
+static unsigned long lastSyncTime = 0;
 
 void metrics_setup() {
-    Serial.println("[METRICS] Membuka NVS Flash 'shoe_metrics'...");
-    
-    // Buka namespace "shoe_metrics" (false = read/write)
+    // Membuka ruang penyimpanan namespace "shoe_metrics" (Read/Write)
     prefs.begin("shoe_metrics", false);
     
-    // Muat data metrik lama dari Flash NVS. Jika kosong, default ke 0.0
-    durationUsage = prefs.getFloat("dur", 0.0f);
-    fanUsageDuration = prefs.getFloat("fan", 0.0f);
-    uvUsageDuration = prefs.getFloat("uv", 0.0f);
+    // Muat data dari NVS Flash, default ke 0.0f jika belum ada
+    durationTotal = prefs.getFloat("dur_total", 0.0f);
+    durationFan   = prefs.getFloat("dur_fan", 0.0f);
+    durationUV    = prefs.getFloat("dur_uv", 0.0f);
     
-    prefs.end();
+    lastSyncTime = millis();
     
-    lastSyncMillis = millis();
-
-    Serial.printf("[METRICS] Metrik dimuat:\n");
-    Serial.printf("   - Total Aktif  : %.4f jam\n", durationUsage);
-    Serial.printf("   - Kipas Aktif  : %.4f jam\n", fanUsageDuration);
-    Serial.printf("   - UV Aktif     : %.4f jam\n", uvUsageDuration);
+    Serial.println("[METRIC] Sukses memuat riwayat pemakaian dari NVS Flash:");
+    Serial.printf("   - Total Durasi: %.4f jam\n", durationTotal);
+    Serial.printf("   - Kipas Aktif : %.4f jam\n", durationFan);
+    Serial.printf("   - UV Aktif    : %.4f jam\n", durationUV);
 }
 
-void metrics_update(float elapsedSeconds, bool heaterActive, bool fanActive, bool uvActive) {
-    float elapsedHours = elapsedSeconds / 3600.0f;
-
-    // Tambahkan waktu berjalan di RAM jika ada aktivitas sistem
-    if (heaterActive || fanActive || uvActive) {
-        durationUsage += elapsedHours;
+void metrics_update(float elapsedSeconds, bool heaterOn, bool fanOn, bool uvOn) {
+    // Konversi detik ke jam (1 detik = 1 / 3600 jam)
+    float hours = elapsedSeconds / 3600.0f;
+    
+    // Akumulasikan ke RAM
+    durationTotal += hours;
+    if (fanOn) {
+        durationFan += hours;
     }
-    if (fanActive) {
-        fanUsageDuration += elapsedHours;
+    if (uvOn) {
+        durationUV += hours;
     }
-    if (uvActive) {
-        uvUsageDuration += elapsedHours;
-    }
-
-    // Auto-sync berkala dari RAM ke memori NVS Flash setiap 5 menit (mencegah aus memori)
+    
+    // Sinkronisasikan berkala ke Flash NVS untuk meminimalisir wear-out NVS sector
     unsigned long currentMillis = millis();
-    if (currentMillis - lastSyncMillis >= (METRICS_SYNC_INTERVAL_S * 1000)) {
+    if (currentMillis - lastSyncTime >= (METRICS_SYNC_INTERVAL_S * 1000)) {
         metrics_sync_to_flash();
     }
 }
 
 void metrics_sync_to_flash() {
-    Serial.println("[METRICS] Menyimpan data RAM ke Flash NVS (Sync)...");
+    lastSyncTime = millis();
     
-    prefs.begin("shoe_metrics", false);
+    prefs.putFloat("dur_total", durationTotal);
+    prefs.putFloat("dur_fan", durationFan);
+    prefs.putFloat("dur_uv", durationUV);
     
-    prefs.putFloat("dur", durationUsage);
-    prefs.putFloat("fan", fanUsageDuration);
-    prefs.putFloat("uv", uvUsageDuration);
-    
-    prefs.end();
-    
-    lastSyncMillis = millis();
-    Serial.println("[METRICS] Sinkronisasi data sukses.");
+    Serial.println("[METRIC] 💾 Metrik sukses disinkronkan ke Flash NVS.");
 }
 
-void metrics_reset() {
-    Serial.println("[METRICS] Mereset data metrik secara permanen di Flash NVS!");
-    
-    prefs.begin("shoe_metrics", false);
-    prefs.clear(); // Hapus seluruh namespace
-    prefs.end();
-
-    durationUsage = 0.0f;
-    fanUsageDuration = 0.0f;
-    uvUsageDuration = 0.0f;
-    
-    lastSyncMillis = millis();
-    Serial.println("[METRICS] Reset metrik sukses.");
-}
-
-float metrics_get_duration_usage() { return durationUsage; }
-float metrics_get_fan_usage_duration() { return fanUsageDuration; }
-float metrics_get_uv_usage_duration() { return uvUsageDuration; }
+float metrics_get_duration_usage() { return durationTotal; }
+float metrics_get_fan_usage_duration() { return durationFan; }
+float metrics_get_uv_usage_duration() { return durationUV; }
