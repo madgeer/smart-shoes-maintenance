@@ -32,9 +32,9 @@
 
 // 4. Konfigurasi Sensor (DHT22 & MQ-135)
 // -------------------------------------------------------------------------
-#define DHT_PIN         18                    // Pin data digital sensor DHT22 (Sesuai wiring.md)
-#define DHT_TYPE        DHT22                 // Tipe sensor DHT
-#define MQ135_PIN       34                    // Pin input analog untuk MQ-135
+#define DHT_PIN         25                   // Pin data digital sensor DHT11/DHT22 (Sesuai wiring.md)
+#define DHT_TYPE        DHT22              // Tipe sensor DHT (Diubah ke DHT11)
+#define MQ135_PIN       36                 // Pin input analog untuk MQ-135 (Pin SP / GPIO 36)
 
 // 5. Konfigurasi Aktuator (Relay 4-Channel & PWM Fan)
 // -------------------------------------------------------------------------

@@ -50,6 +50,7 @@ const initMqttListener = () => {
       // 1. Parsing Payload Telemetri
       const payload = JSON.parse(message.toString());
       const { device_code, shoe_id, telemetry, metrics, timestamp } = payload;
+      const shoeId = shoe_id;
 
       if (!device_code || !shoe_id || !telemetry) {
         console.warn('[MQTT-LISTENER] Payload tidak lengkap. Dilewati.');
