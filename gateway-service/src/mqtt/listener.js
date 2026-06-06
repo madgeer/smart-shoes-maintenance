@@ -9,7 +9,7 @@ const initMqttListener = () => {
   // Melakukan subscribe ke data telemetri dan status koneksi dari perangkat apa pun
   const telemetryTopic = 'v1/devices/+/telemetry';
   const statusTopic = 'v1/devices/+/status';
-  
+
   mqttClient.subscribe([telemetryTopic, statusTopic], (err) => {
     if (err) {
       console.error(`[MQTT-LISTENER] Gagal men-subscribe topik telemetri/status`, err);
@@ -21,13 +21,13 @@ const initMqttListener = () => {
   // Menangani pesan MQTT yang masuk
   mqttClient.on('message', async (topic, message) => {
     console.log(`[MQTT-LISTENER] Menerima pesan pada topik: ${topic}`);
-    
+
     try {
       // A. Menangani status online/offline perangkat keras (LWT / Startup)
       if (topic.endsWith('/status')) {
         const payload = JSON.parse(message.toString());
         const { device_code, status } = payload;
-        
+
         if (!device_code || !status) {
           console.warn('[MQTT-LISTENER] Payload status tidak lengkap. Dilewati.');
           return;
@@ -114,10 +114,10 @@ const initMqttListener = () => {
       });
 
       // 5. Integrasi Paralel Inferensi Model ML Service
-      
+
       // A. Model 1: Prediksi Klasifikasi Bau (Random Forest / K-Means)
       const smellPred = await mlService.predictSmell(gas_level, humidity, temperature);
-      
+
       // B. Model 2: Prediksi Estimasi Waktu Pengeringan (Regression)
       // B.1 Cari kelembapan awal dalam sesi 12 jam terakhir
       const oldestLogResult = await db.query(
@@ -131,7 +131,7 @@ const initMqttListener = () => {
       // B.2 Cari bahan/material sepatu
       const shoeResult = await db.query('SELECT shoe_material FROM shoes WHERE id = $1', [activeShoeId]);
       const materialName = shoeResult.rows.length > 0 ? shoeResult.rows[0].shoe_material : 'Kanvas';
-      
+
       // B.3 Konversi bahan tekstil ke nilai integer input ML (1: Kanvas, 2: Kulit, 3: Mesh)
       const materialMap = { 'Kanvas': 1, 'Kulit': 2, 'Mesh': 3 };
       const jenisBahan = materialMap[materialName] || 1;
@@ -206,7 +206,7 @@ const initMqttListener = () => {
           timestamp: logTimestamp
         });
 
-        // Kirim Notifikasi ke Telegram Bot
+        // Kirim Notifikasi ke Telegram Bot (tidak terpakai)
         if (smellPred.kategori === 'Sangat Bau') {
           const tgMessage = `🚨 *DETEKSI BAU SEPATU!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💨 MQ-135 Gas: *${gas_level.toFixed(1)} ppm* (Kondisi: *Sangat Bau*)\n💦 Kelembapan: *${humidity.toFixed(1)} %*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi bakteri.`;
           sendTelegramNotification(tgMessage);

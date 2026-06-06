@@ -28,9 +28,9 @@ VALUES (
 -- 3. Insert Mock Shoes for John Doe
 INSERT INTO shoes (user_id, shoe_name, shoe_type, shoe_material, created_at)
 VALUES 
-(1, 'Nike Air Max Blue', 'Running', 'Mesh', NOW() - INTERVAL '4 days'),
-(1, 'Adidas Samba Black', 'Casual', 'Kanvas', NOW() - INTERVAL '4 days'),
-(1, 'Prada Derby Leather', 'Formal', 'Kulit', NOW() - INTERVAL '4 days');
+(1, 'Sepatu Mesh', 'Umum', 'Mesh', NOW() - INTERVAL '4 days'),
+(1, 'Sepatu Kanvas', 'Umum', 'Kanvas', NOW() - INTERVAL '4 days'),
+(1, 'Sepatu Kulit', 'Umum', 'Kulit', NOW() - INTERVAL '4 days');
 
 -- 4. Insert Mock Notifications for John Doe
 INSERT INTO notifications (user_id, title, message, notification_type, is_read, created_at)
@@ -46,7 +46,7 @@ VALUES
 (
     1, 
     'Peringatan Sepatu Sangat Basah', 
-    'Sepatu Nike Air Max Blue terdeteksi sangat lembap (Kelembapan 85%). Kipas dan Heater otomatis dinyalakan.', 
+    'Sepatu Mesh terdeteksi sangat lembap (Kelembapan 85%). Kipas dan Heater otomatis dinyalakan.', 
     'WARNING', 
     false, 
     NOW() - INTERVAL '2 hours'
@@ -54,7 +54,7 @@ VALUES
 (
     1, 
     'Proses Pengeringan Selesai', 
-    'Sepatu Nike Air Max Blue telah kering optimal secara otomatis! Heater dan UV telah dimatikan.', 
+    'Sepatu Mesh telah kering optimal secara otomatis! Heater dan UV telah dimatikan.', 
     'INFO', 
     false, 
     NOW() - INTERVAL '10 minutes'

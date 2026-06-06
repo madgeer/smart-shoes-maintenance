@@ -28,11 +28,11 @@ class PredictorService:
 
     def predict_drying_time(self, kelembapan_awal: float, kelembapan_sekarang: float, suhu: float, jenis_bahan: int, sensor_bau: float) -> Tuple[float, str]:
         """Memprediksi sisa waktu pengeringan sepatu secara matematis/rule-based."""
-        if kelembapan_sekarang <= 10.0:
+        if kelembapan_sekarang <= 15.0:
             return 0.0, "Selesai (Sepatu sudah kering optimal)"
 
-        # Selisih kelembapan ke target kering (10%)
-        selisih_kelembapan = kelembapan_sekarang - 10.0
+        # Selisih kelembapan ke target kering (15%)
+        selisih_kelembapan = kelembapan_sekarang - 15.0
 
         # Laju pengeringan dasar (% kelembapan berkurang per menit)
         # Pada suhu 25 derajat berkurang 0.5% per menit. Laju meningkat 0.02% per 1 derajat suhu naik.

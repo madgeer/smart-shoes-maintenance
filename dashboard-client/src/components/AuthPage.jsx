@@ -6,7 +6,7 @@ export const AuthPage = ({ onAuthSuccess }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +51,7 @@ export const AuthPage = ({ onAuthSuccess }) => {
 
       {/* Main Container */}
       <div className="w-full max-w-md p-6 relative z-10">
-        
+
         {/* Logo & Judul Sistem */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-[#3A2B1C] to-[#C97B36] p-0.5 shadow-lg shadow-[#C97B36]/20 mb-3 animate-pulse">
@@ -62,7 +62,7 @@ export const AuthPage = ({ onAuthSuccess }) => {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-[#C97B36]">
-            SMART SHOE
+            SMART SHOE MAINTENANCE
           </h1>
           <p className="text-gray-400 text-sm mt-1">Sistem Pemeliharaan Sepatu Pintar IoT</p>
         </div>
@@ -76,21 +76,19 @@ export const AuthPage = ({ onAuthSuccess }) => {
           <div className="flex bg-[#0F0C08]/60 p-1 rounded-lg border border-white/[0.05] mb-6">
             <button
               onClick={() => { setMode("login"); setError(""); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${
-                mode === "login"
-                  ? "bg-[#C97B36] text-white shadow-md shadow-[#C97B36]/10"
-                  : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${mode === "login"
+                ? "bg-[#C97B36] text-white shadow-md shadow-[#C97B36]/10"
+                : "text-gray-400 hover:text-white"
+                }`}
             >
               Sign In
             </button>
             <button
               onClick={() => { setMode("register"); setError(""); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${
-                mode === "register"
-                  ? "bg-[#C97B36] text-white shadow-md shadow-[#C97B36]/10"
-                  : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${mode === "register"
+                ? "bg-[#C97B36] text-white shadow-md shadow-[#C97B36]/10"
+                : "text-gray-400 hover:text-white"
+                }`}
             >
               Sign Up
             </button>
@@ -189,10 +187,10 @@ export const AuthPage = ({ onAuthSuccess }) => {
           </form>
         </div>
 
-        {/* Info Tambahan */}
+        {/* Info Tambahan
         <p className="text-center text-xs text-gray-500 mt-6 relative z-10">
           Dengan masuk Anda menyetujui seluruh ketentuan & skema keamanan enkripsi JWT/Bcrypt.
-        </p>
+        </p> */}
       </div>
     </div>
   );

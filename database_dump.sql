@@ -1793,9 +1793,9 @@ COPY public.sensor_logs (id, shoe_id, device_id, temperature, humidity, gas_leve
 --
 
 COPY public.shoes (id, user_id, shoe_name, shoe_type, shoe_material, created_at) FROM stdin;
-1	1	Nike Air Max Blue	Running	Mesh	2026-05-19 04:57:33.103686
-2	1	Adidas Samba Black	Casual	Kanvas	2026-05-19 04:57:33.103686
-3	1	Prada Derby Leather	Formal	Kulit	2026-05-19 04:57:33.103686
+1	1	Sepatu Mesh	Umum	Mesh	2026-05-19 04:57:33.103686
+2	1	Sepatu Kanvas	Umum	Kanvas	2026-05-19 04:57:33.103686
+3	1	Sepatu Kulit	Umum	Kulit	2026-05-19 04:57:33.103686
 \.
 
 

@@ -129,8 +129,8 @@ Menambahkan pasang sepatu baru untuk dipantau.
 * **Request Body**:
 ```json
 {
-  "shoe_name": "Nike Air Max Black",
-  "shoe_type": "Sneaker"
+  "shoe_name": "Sepatu Mesh",
+  "shoe_type": "Umum"
 }
 ```
 * **Success Response (201 Created)**:
@@ -141,8 +141,8 @@ Menambahkan pasang sepatu baru untuk dipantau.
   "data": {
     "id": 1,
     "user_id": 1,
-    "shoe_name": "Nike Air Max Black",
-    "shoe_type": "Sneaker",
+    "shoe_name": "Sepatu Mesh",
+    "shoe_type": "Umum",
     "created_at": "2026-05-22T11:10:00.000Z"
   }
 }
@@ -159,8 +159,8 @@ Mengambil daftar sepatu yang dimiliki oleh pengguna.
   "data": [
     {
       "id": 1,
-      "shoe_name": "Nike Air Max Black",
-      "shoe_type": "Sneaker",
+      "shoe_name": "Sepatu Mesh",
+      "shoe_type": "Umum",
       "created_at": "2026-05-22T11:10:00.000Z"
     }
   ]
