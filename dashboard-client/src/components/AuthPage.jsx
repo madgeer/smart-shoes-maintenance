@@ -187,10 +187,10 @@ export const AuthPage = ({ onAuthSuccess }) => {
           </form>
         </div>
 
-        {/* Info Tambahan
+        {/* Info Tambahan 
         <p className="text-center text-xs text-gray-500 mt-6 relative z-10">
           Dengan masuk Anda menyetujui seluruh ketentuan & skema keamanan enkripsi JWT/Bcrypt.
-        </p> */}
+        </p>*/}
       </div>
     </div>
   );
