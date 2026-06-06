@@ -64,7 +64,7 @@ const initMqttListener = () => {
 
       // 2. Cari data perangkat dan status mode kontrol di database
       const deviceResult = await db.query(
-        'SELECT id, user_id, device_name, control_mode, heater_state, uv_light_state, fan_state FROM devices WHERE device_code = $1',
+        'SELECT id, user_id, device_name, control_mode, heater_state, uv_light_state, fan_state, active_shoe_id FROM devices WHERE device_code = $1',
         [device_code]
       );
 
@@ -77,6 +77,7 @@ const initMqttListener = () => {
       const deviceId = device.id;
       const userId = device.user_id;
       const controlMode = device.control_mode || 'auto';
+      const activeShoeId = device.active_shoe_id || shoe_id;
 
       // 3. Simpan data sensor ke tabel `sensor_logs`
       const insertLogQuery = `
@@ -85,7 +86,7 @@ const initMqttListener = () => {
         RETURNING id, created_at
       `;
       const newLog = await db.query(insertLogQuery, [
-        shoe_id,
+        activeShoeId,
         deviceId,
         temperature,
         humidity,
@@ -103,7 +104,7 @@ const initMqttListener = () => {
       // 4. Siarkan data sensor mentah ke WebSocket secara realtime
       wsManager.broadcastToDevice(device_code, 'sensor:update', {
         device_code,
-        shoe_id,
+        shoe_id: activeShoeId,
         data: {
           temperature,
           humidity,
@@ -114,8 +115,8 @@ const initMqttListener = () => {
 
       // 5. Integrasi Paralel Inferensi Model ML Service
       
-      // A. Model 1: Prediksi Klasifikasi Bau (K-Means)
-      const smellPred = await mlService.predictSmell(gas_level, humidity);
+      // A. Model 1: Prediksi Klasifikasi Bau (Random Forest / K-Means)
+      const smellPred = await mlService.predictSmell(gas_level, humidity, temperature);
       
       // B. Model 2: Prediksi Estimasi Waktu Pengeringan (Regression)
       // B.1 Cari kelembapan awal dalam sesi 12 jam terakhir
@@ -123,12 +124,12 @@ const initMqttListener = () => {
         `SELECT humidity FROM sensor_logs 
          WHERE shoe_id = $1 AND created_at >= NOW() - INTERVAL '12 hours' 
          ORDER BY created_at ASC LIMIT 1`,
-        [shoe_id]
+        [activeShoeId]
       );
       const kelembapanAwal = oldestLogResult.rows.length > 0 ? oldestLogResult.rows[0].humidity : humidity;
 
       // B.2 Cari bahan/material sepatu
-      const shoeResult = await db.query('SELECT shoe_material FROM shoes WHERE id = $1', [shoe_id]);
+      const shoeResult = await db.query('SELECT shoe_material FROM shoes WHERE id = $1', [activeShoeId]);
       const materialName = shoeResult.rows.length > 0 ? shoeResult.rows[0].shoe_material : 'Kanvas';
       
       // B.3 Konversi bahan tekstil ke nilai integer input ML (1: Kanvas, 2: Kulit, 3: Mesh)
@@ -161,7 +162,7 @@ const initMqttListener = () => {
       // 7. Siarkan hasil analisa prediksi ML ke WebSocket secara realtime
       wsManager.broadcastToDevice(device_code, 'prediction:update', {
         device_code,
-        shoe_id,
+        shoe_id: activeShoeId,
         prediction: {
           smell: {
             label: smellPred.label,
@@ -178,14 +179,14 @@ const initMqttListener = () => {
       });
 
       // 8. Logika Peringatan Bau Parah & Notifikasi Otomatis
-      if (smellPred.kategori === 'Bau' || humidity > 75.0) {
+      if (smellPred.kategori === 'Sangat Bau' || humidity > 75.0) {
         let alertTitle = 'Peringatan Kelembapan Tinggi!';
         let alertMsg = `Sepatu terdeteksi sangat lembap (${humidity.toFixed(1)}%). Direkomendasikan sterilisasi & pengeringan otomatis.`;
         let alertType = 'WARNING';
 
-        if (smellPred.kategori === 'Bau') {
+        if (smellPred.kategori === 'Sangat Bau') {
           alertTitle = 'Deteksi Bau Sepatu!';
-          alertMsg = `Tingkat bau sepatu terdeteksi kurang sedap. Sistem menyalakan sterilisator lampu UV secara otomatis.`;
+          alertMsg = `Tingkat bau sepatu terdeteksi sangat kurang sedap. Sistem menyalakan sterilisator lampu UV secara otomatis.`;
           alertType = 'DANGER';
         }
 
@@ -206,11 +207,11 @@ const initMqttListener = () => {
         });
 
         // Kirim Notifikasi ke Telegram Bot
-        if (smellPred.kategori === 'Bau') {
-          const tgMessage = `🚨 *DETEKSI BAU SEPATU!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💨 MQ-135 Gas: *${gas_level.toFixed(1)} ppm* (Kondisi: *Bau*)\n💦 Kelembapan: *${humidity.toFixed(1)} %*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi bakteri.`;
+        if (smellPred.kategori === 'Sangat Bau') {
+          const tgMessage = `🚨 *DETEKSI BAU SEPATU!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💨 MQ-135 Gas: *${gas_level.toFixed(1)} ppm* (Kondisi: *Sangat Bau*)\n💦 Kelembapan: *${humidity.toFixed(1)} %*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi bakteri.`;
           sendTelegramNotification(tgMessage);
         } else if (humidity > 75.0) {
-          const tgMessage = `⚠️ *PERINGATAN KELEMBAPAN TINGGI!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Basah Sekali)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSepatu terdeteksi basah sekali. Sistem mengaktifkan Heater dan Blower otomatis untuk memulai pengeringan.`;
+          const tgMessage = `⚠️ *PERINGATAN KELEMBAPAN TINGGI!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Basah Sekali)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSepatu terdeteksi basah sekali. Sistem mengaktifkan Heater dan Blower otomatis untuk memulai pengeringan.`;
           sendTelegramNotification(tgMessage);
         }
       }
@@ -230,6 +231,7 @@ const initMqttListener = () => {
             fan: device.fan_state || 'OFF'
           },
           mode: 'manual',
+          active_shoe_id: activeShoeId,
           timestamp: new Date().toISOString()
         };
 
@@ -241,16 +243,16 @@ const initMqttListener = () => {
       } else {
         // B. JIKA MODE AUTO: Lakukan kalkulasi otomatis
         // - Heater aktif jika kelembapan belum optimal kering (>15%)
-        // - UV aktif jika bau terdeteksi 'Bau' (mencegah bakteri)
+        // - UV aktif jika bau terdeteksi 'Sangat Bau' (mencegah bakteri)
         // - Kipas aktif jika salah satu heater atau UV menyala
         const heaterState = humidity > 15.0 ? 'ON' : 'OFF';
-        const uvState = smellPred.kategori === 'Bau' ? 'ON' : 'OFF';
-        const fanState = (humidity > 15.0 || smellPred.kategori === 'Bau') ? 'ON' : 'OFF';
+        const uvState = smellPred.kategori === 'Sangat Bau' ? 'ON' : 'OFF';
+        const fanState = (humidity > 15.0 || smellPred.kategori === 'Sangat Bau') ? 'ON' : 'OFF';
 
         // Deteksi transisi proses pengeringan selesai (Heater dari ON berubah menjadi OFF)
         if (device.heater_state === 'ON' && heaterState === 'OFF') {
           const finishedTitle = 'Proses Pengeringan Selesai!';
-          const finishedMsg = `Sepatu dengan ID #${shoeId} telah kering secara optimal (${humidity.toFixed(1)}%). Pemanas otomatis dinonaktifkan.`;
+          const finishedMsg = `Sepatu dengan ID #${activeShoeId} telah kering secara optimal (${humidity.toFixed(1)}%). Pemanas otomatis dinonaktifkan.`;
 
           // Simpan notifikasi ke database PostgreSQL
           await db.query(
@@ -268,7 +270,7 @@ const initMqttListener = () => {
           });
 
           // Kirim Notifikasi via Telegram Bot
-          const tgMsg = `✅ *PROSES PENGERINGAN SELESAI!*\n📦 Shoe ID: *#${shoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan Akhir: *${humidity.toFixed(1)} %* (Optimal & Kering)\n🌡️ Suhu Akhir: *${temperature.toFixed(1)} °C*\n\nSepatu telah kering sempurna dan siap digunakan kembali. Pemanas otomatis dimatikan oleh sistem.`;
+          const tgMsg = `✅ *PROSES PENGERINGAN SELESAI!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan Akhir: *${humidity.toFixed(1)} %* (Optimal & Kering)\n🌡️ Suhu Akhir: *${temperature.toFixed(1)} °C*\n\nSepatu telah kering sempurna dan siap digunakan kembali. Pemanas otomatis dimatikan oleh sistem.`;
           sendTelegramNotification(tgMsg);
         }
 
@@ -287,6 +289,7 @@ const initMqttListener = () => {
             fan: fanState
           },
           mode: 'auto',
+          active_shoe_id: activeShoeId,
           timestamp: new Date().toISOString()
         };
 

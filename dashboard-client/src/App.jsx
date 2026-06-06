@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import {
   Bell,
   Wifi,
+  Home,
   Thermometer,
   Droplets,
   Wind,
@@ -12,7 +13,6 @@ import {
   Clock3,
   AlertTriangle,
   Power,
-  Zap,
 } from "lucide-react";
 
 import { connectSocket } from "./services/socket";
@@ -137,8 +137,18 @@ export default function SmartShoeDryerDashboard() {
     uv_light: "OFF",
     fan: "OFF",
   });
-  const [fanPwm, setFanPwm] = useState(70);
+
+  const [activeTab, setActiveTab] = useState("Dashboard");
   
+  // State pilihan bahan/sepatu
+  const [shoes, setShoes] = useState([]);
+  const [selectedShoeId, setSelectedShoeId] = useState(null);
+  const selectedShoeIdRef = useRef(null);
+
+  useEffect(() => {
+    selectedShoeIdRef.current = selectedShoeId;
+  }, [selectedShoeId]);
+
   const MAX_POINTS = 10;
   
   const handleActuatorToggle = async (key) => {
@@ -152,26 +162,11 @@ export default function SmartShoeDryerDashboard() {
     try {
       await api.post("/devices/ESP32-SHOE-001/commands", {
         mode: "manual",
-        actuators: nextActuators
+        actuators: nextActuators,
+        active_shoe_id: selectedShoeIdRef.current
       });
     } catch (err) {
       console.error("Gagal mengirim komando:", err.message);
-    }
-  };
-
-  const handleFanPwmChange = async (val) => {
-    setFanPwm(val);
-    if (controlMode !== "manual") return;
-    const fanState = val > 0 ? "ON" : "OFF";
-    const nextActuators = { ...actuators, fan: fanState };
-    setActuators(nextActuators);
-    try {
-      await api.post("/devices/ESP32-SHOE-001/commands", {
-        mode: "manual",
-        actuators: nextActuators
-      });
-    } catch (err) {
-      console.error("Gagal mengirim komando kipas:", err.message);
     }
   };
 
@@ -181,34 +176,53 @@ export default function SmartShoeDryerDashboard() {
     try {
       await api.post("/devices/ESP32-SHOE-001/commands", {
         mode: newMode,
-        actuators: actuators
+        actuators: actuators,
+        active_shoe_id: selectedShoeIdRef.current
       });
     } catch (err) {
       console.error("Gagal mengubah mode kontrol:", err.message);
     }
   };
 
-  const activatePreset = async (presetName) => {
-    let targetActuators = { heater: "OFF", uv_light: "OFF", fan: "OFF" };
-    if (presetName === "Quick Dry") {
-      targetActuators = { heater: "ON", uv_light: "ON", fan: "ON" };
-    } else if (presetName === "Normal Dry") {
-      targetActuators = { heater: "ON", uv_light: "OFF", fan: "ON" };
-    } else if (presetName === "Sport Shoes") {
-      targetActuators = { heater: "OFF", uv_light: "ON", fan: "ON" };
-    } else if (presetName === "Leather Mode") {
-      targetActuators = { heater: "OFF", uv_light: "OFF", fan: "ON" };
-    }
-
-    setControlMode("manual");
-    setActuators(targetActuators);
+  const handleShoeChange = async (shoeId) => {
+    setSelectedShoeId(shoeId);
     try {
+      // Perbarui active_shoe_id di backend
       await api.post("/devices/ESP32-SHOE-001/commands", {
-        mode: "manual",
-        actuators: targetActuators
+        mode: controlMode,
+        actuators: actuators,
+        active_shoe_id: shoeId
       });
+      
+      // Ambil riwayat log sensor terbaru untuk sepatu yang baru terpilih
+      const logsResponse = await api.get(`/sensor-logs?shoe_id=${shoeId}`);
+      if (logsResponse.data && logsResponse.data.success) {
+        const fetchedLogs = logsResponse.data.data;
+        const formattedLogs = fetchedLogs.map(item => ({
+          date: new Date(item.created_at).toLocaleString(),
+          mode: item.drying_status || "AUTO",
+          duration: `${Math.round((item.duration_usage || 0) * 60)} min`,
+          temp: `${item.temperature.toFixed(1)}°C`,
+          result: item.smell_label || "Normal"
+        }));
+        setLogs(formattedLogs);
+
+        const recentLogs = fetchedLogs.slice(-MAX_POINTS);
+        setTempData(recentLogs.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString(),
+          value: item.temperature
+        })));
+        setHumidityData(recentLogs.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString(),
+          value: item.humidity
+        })));
+        setAirData(recentLogs.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString(),
+          value: item.gas_level
+        })));
+      }
     } catch (err) {
-      console.error("Gagal mengaktifkan preset:", err.message);
+      console.error("Gagal mengubah sepatu aktif:", err.message);
     }
   };
 
@@ -244,6 +258,18 @@ export default function SmartShoeDryerDashboard() {
       try {
         // Fetch initial data
         try {
+          // 1. Ambil daftar sepatu milik user
+          const shoesResponse = await api.get("/shoes");
+          let activeShoeId = null;
+          if (shoesResponse.data && shoesResponse.data.success) {
+            const fetchedShoes = shoesResponse.data.data;
+            setShoes(fetchedShoes);
+            if (fetchedShoes.length > 0) {
+              activeShoeId = fetchedShoes[0].id;
+            }
+          }
+
+          // 2. Ambil data perangkat
           const deviceResponse = await api.get("/devices");
           if (deviceResponse.data && deviceResponse.data.success && deviceResponse.data.data.length > 0) {
             const dev = deviceResponse.data.data[0];
@@ -256,35 +282,44 @@ export default function SmartShoeDryerDashboard() {
               uv_light: dev.uv_light_state || "OFF",
               fan: dev.fan_state || "OFF"
             });
+            if (dev.active_shoe_id) {
+              activeShoeId = dev.active_shoe_id;
+            }
+          }
+          
+          setSelectedShoeId(activeShoeId);
+
+          // 3. Ambil riwayat log sensor untuk sepatu yang aktif
+          if (activeShoeId) {
+            const logsResponse = await api.get(`/sensor-logs?shoe_id=${activeShoeId}`);
+            if (logsResponse.data && logsResponse.data.success) {
+              const fetchedLogs = logsResponse.data.data;
+              const formattedLogs = fetchedLogs.map(item => ({
+                date: new Date(item.created_at).toLocaleString(),
+                mode: item.drying_status || "AUTO",
+                duration: `${Math.round((item.duration_usage || 0) * 60)} min`,
+                temp: `${item.temperature.toFixed(1)}°C`,
+                result: item.smell_label || "Normal"
+              }));
+              setLogs(formattedLogs);
+
+              const recentLogs = fetchedLogs.slice(-MAX_POINTS);
+              setTempData(recentLogs.map(item => ({
+                time: new Date(item.created_at).toLocaleTimeString(),
+                value: item.temperature
+              })));
+              setHumidityData(recentLogs.map(item => ({
+                time: new Date(item.created_at).toLocaleTimeString(),
+                value: item.humidity
+              })));
+              setAirData(recentLogs.map(item => ({
+                time: new Date(item.created_at).toLocaleTimeString(),
+                value: item.gas_level
+              })));
+            }
           }
 
-          const logsResponse = await api.get("/sensor-logs?shoe_id=1");
-          if (logsResponse.data && logsResponse.data.success) {
-            const fetchedLogs = logsResponse.data.data;
-            const formattedLogs = fetchedLogs.map(item => ({
-              date: new Date(item.created_at).toLocaleString(),
-              mode: item.drying_status || "AUTO",
-              duration: `${Math.round((item.duration_usage || 0) * 60)} min`,
-              temp: `${item.temperature.toFixed(1)}°C`,
-              result: item.smell_label || "Normal"
-            }));
-            setLogs(formattedLogs);
-
-            const recentLogs = fetchedLogs.slice(-MAX_POINTS);
-            setTempData(recentLogs.map(item => ({
-              time: new Date(item.created_at).toLocaleTimeString(),
-              value: item.temperature
-            })));
-            setHumidityData(recentLogs.map(item => ({
-              time: new Date(item.created_at).toLocaleTimeString(),
-              value: item.humidity
-            })));
-            setAirData(recentLogs.map(item => ({
-              time: new Date(item.created_at).toLocaleTimeString(),
-              value: item.gas_level
-            })));
-          }
-
+          // 4. Ambil notifikasi terbaru
           const notifResponse = await api.get("/notifications");
           if (notifResponse.data && notifResponse.data.success && notifResponse.data.data.length > 0) {
             const latestNotif = notifResponse.data.data[0];
@@ -327,10 +362,18 @@ export default function SmartShoeDryerDashboard() {
           if (payload.mode) {
             setControlMode(payload.mode);
           }
+          if (payload.active_shoe_id && payload.active_shoe_id !== selectedShoeIdRef.current) {
+            setSelectedShoeId(payload.active_shoe_id);
+          }
         });
 
         socket.on("sensor:update", (payload) => {
           console.log("SENSOR UPDATE:", payload);
+          // Filter sensor update agar hanya memproses sepatu yang sedang aktif
+          if (payload.shoe_id && payload.shoe_id !== selectedShoeIdRef.current) {
+            console.log("Sensor update diabaikan karena shoe_id berbeda:", payload.shoe_id, selectedShoeIdRef.current);
+            return;
+          }
 
           const sensor = payload.data;
 
@@ -370,6 +413,11 @@ export default function SmartShoeDryerDashboard() {
 
         socket.on("prediction:update", (payload) => {
           console.log("PREDICTION UPDATE:", payload);
+          // Filter prediction update agar hanya memproses sepatu yang sedang aktif
+          if (payload.shoe_id && payload.shoe_id !== selectedShoeIdRef.current) {
+            console.log("Prediction update diabaikan karena shoe_id berbeda:", payload.shoe_id, selectedShoeIdRef.current);
+            return;
+          }
 
           setPrediction(payload.prediction);
 
@@ -377,7 +425,7 @@ export default function SmartShoeDryerDashboard() {
             payload.prediction?.smell?.kategori === "Bau"
           ) {
             setAlert(
-              "Sepatu terdeteksi bau tinggi. Sistem merekomendasikan UV sterilization."
+              "Sepatu terdeteksi bau tinggi. Sistem merekomendasikan UCV sterilization."
             );
           }
 
@@ -438,13 +486,13 @@ export default function SmartShoeDryerDashboard() {
             "Device Control",
             "History Logs",
             "Analytics",
-            "Settings",
-          ].map((item, index) => (
+          ].map((item) => (
             <div
-              key={index}
+              key={item}
+              onClick={() => setActiveTab(item)}
               className={`px-4 py-3 rounded-2xl cursor-pointer transition ${
-                index === 0
-                  ? "bg-[#C97B36]"
+                activeTab === item
+                  ? "bg-[#C97B36] text-white"
                   : "hover:bg-[#3b2b21] text-gray-300"
               }`}
             >
@@ -467,7 +515,7 @@ export default function SmartShoeDryerDashboard() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1">
+      <main className="flex-1 pb-20 lg:pb-0">
         {/* NAVBAR */}
         <header className="bg-white border-b border-[#ececec] px-6 py-4 flex items-center justify-between">
           <div>
@@ -478,6 +526,22 @@ export default function SmartShoeDryerDashboard() {
           </div>
 
           <div className="flex items-center gap-5">
+            {/* DROPDOWN PILIHAN SEPATU */}
+            <div className="hidden md:flex items-center gap-2 bg-[#F5F1EA] px-4 py-2 rounded-2xl border border-[#ececec]">
+              <span className="text-sm text-gray-600 font-medium">Bahan & Sepatu:</span>
+              <select
+                value={selectedShoeId || ""}
+                onChange={(e) => handleShoeChange(parseInt(e.target.value))}
+                className="bg-transparent text-sm font-bold text-[#3A2B1C] focus:outline-none cursor-pointer"
+              >
+                {shoes.map((shoe) => (
+                  <option key={shoe.id} value={shoe.id}>
+                    {shoe.shoe_name} ({shoe.shoe_material})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="text-right hidden md:block">
               <h4 className="font-semibold">{userProfile?.name || "User"}</h4>
               <button 
@@ -506,296 +570,259 @@ export default function SmartShoeDryerDashboard() {
               <AlertTriangle />
               <p>{alert}</p>
             </div>
+          )}          {/* BANNER SEPATU AKTIF */}
+          {selectedShoeId && (
+            <div className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#F5F1EA] flex items-center justify-center font-bold text-[#C97B36] text-xl">
+                  👟
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#3A2B1C] text-lg">
+                    {shoes.find(s => s.id === selectedShoeId)?.shoe_name || "Memuat..."}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Bahan: <span className="font-semibold text-[#C97B36]">{shoes.find(s => s.id === selectedShoeId)?.shoe_material || "Kanvas"}</span> | Tipe: {shoes.find(s => s.id === selectedShoeId)?.shoe_type || "Sneaker"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <div className="bg-[#FFF4E5] px-4 py-2 rounded-2xl text-xs font-semibold text-[#8B5E34] w-full sm:w-auto text-center">
+                  ML Input: {shoes.find(s => s.id === selectedShoeId)?.shoe_material === 'Kulit' ? 'Kulit (Pengali Estimasi 0.7x)' : shoes.find(s => s.id === selectedShoeId)?.shoe_material === 'Mesh' ? 'Mesh (Pengali Estimasi 1.5x)' : 'Kanvas (Pengali Estimasi 1.0x)'}
+                </div>
+
+                {/* Dropdown pemilih sepatu (untuk HP & Desktop) */}
+                <div className="flex items-center gap-2 bg-[#F5F1EA] px-3 py-2 rounded-2xl border border-[#ececec] w-full sm:w-auto justify-between sm:justify-start">
+                  <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Ganti Sepatu:</span>
+                  <select
+                    value={selectedShoeId || ""}
+                    onChange={(e) => handleShoeChange(parseInt(e.target.value))}
+                    className="bg-transparent text-xs font-bold text-[#3A2B1C] focus:outline-none cursor-pointer w-full sm:w-auto"
+                  >
+                    {shoes.map((shoe) => (
+                      <option key={shoe.id} value={shoe.id}>
+                        {shoe.shoe_name} ({shoe.shoe_material})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
           )}
 
-          {/* OVERVIEW CARDS */}
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-            <Card
-              title="Temperature"
-              value={`${sensorData.temperature.toFixed(1)}°C`}
-              status={sensorData.temperature > 40 ? "Heating" : "Stable"}
-              color="bg-orange-100"
-              icon={<Thermometer className="text-orange-500" />}
-            />
+          {/* TAB 1: DASHBOARD OVERVIEW */}
+          {activeTab === "Dashboard" && (
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+              <Card
+                title="Temperature"
+                value={`${sensorData.temperature.toFixed(1)}°C`}
+                status={sensorData.temperature > 40 ? "Heating" : "Stable"}
+                color="bg-orange-100"
+                icon={<Thermometer className="text-orange-500" />}
+              />
 
-            <Card
-              title="Humidity"
-              value={`${sensorData.humidity.toFixed(1)}% RH`}
-              status={sensorData.humidity <= 15 ? "Dry (Optimal)" : "Drying"}
-              color="bg-blue-100"
-              icon={<Droplets className="text-blue-500" />}
-            />
+              <Card
+                title="Humidity"
+                value={`${sensorData.humidity.toFixed(1)}% RH`}
+                status={sensorData.humidity <= 15 ? "Dry (Optimal)" : "Drying"}
+                color="bg-blue-100"
+                icon={<Droplets className="text-blue-500" />}
+              />
 
-            <Card
-              title="Air Quality"
-              value={`${sensorData.gas_level.toFixed(0)} ppm`}
-              status={prediction?.smell?.kategori || "Normal"}
-              color={
-                prediction?.smell?.kategori === "Bau"
-                  ? "bg-red-100"
-                  : prediction?.smell?.kategori === "Wangi"
-                  ? "bg-green-100"
-                  : "bg-yellow-100"
-              }
-              icon={<Wind className="text-yellow-600" />}
-            />
+              <Card
+                title="Air Quality"
+                value={`${sensorData.gas_level.toFixed(0)} ppm`}
+                status={prediction?.smell?.kategori || "Normal"}
+                color={
+                  prediction?.smell?.kategori === "Bau"
+                    ? "bg-red-100"
+                    : prediction?.smell?.kategori === "Wangi"
+                    ? "bg-green-100"
+                    : "bg-yellow-100"
+                }
+                icon={<Wind className="text-yellow-600" />}
+              />
 
-            <Card
-              title="Drying Status"
-              value={prediction?.drying?.drying_status ? (prediction.drying.drying_status.includes("Selesai") ? "SELESAI" : "ACTIVE") : "IDLE"}
-              status={
-                prediction?.drying?.estimated_drying_time !== undefined
-                  ? `${prediction.drying.estimated_drying_time} min sisa`
-                  : "Optimal"
-              }
-              color="bg-green-100"
-              icon={<Activity className="text-green-600" />}
-            />
-          </section>
+              <Card
+                title="Drying Status"
+                value={prediction?.drying?.drying_status ? (prediction.drying.drying_status.includes("Selesai") ? "SELESAI" : "ACTIVE") : "IDLE"}
+                status={
+                  prediction?.drying?.estimated_drying_time !== undefined
+                    ? `${prediction.drying.estimated_drying_time} min sisa`
+                    : "Optimal"
+                }
+                color="bg-green-100"
+                icon={<Activity className="text-green-600" />}
+              />
+            </section>
+          )}
 
-          {/* CHARTS */}
-          <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-            <ChartCard
-              title="Temperature Chart"
-              data={tempData}
-              dataKey="value"
-            />
+          {/* TAB 2: REALTIME MONITORING CHARTS */}
+          {activeTab === "Monitoring" && (
+            <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+              <ChartCard
+                title="Temperature Chart"
+                data={tempData}
+                dataKey="value"
+              />
 
-            <ChartCard
-              title="Humidity Chart"
-              data={humidityData}
-              dataKey="value"
-            />
+              <ChartCard
+                title="Humidity Chart"
+                data={humidityData}
+                dataKey="value"
+              />
 
-            <ChartCard
-              title="Air Quality Chart"
-              data={airData}
-              dataKey="value"
-            />
-          </section>
+              <ChartCard
+                title="Air Quality Chart"
+                data={airData}
+                dataKey="value"
+              />
+            </section>
+          )}
 
-          {/* DEVICE CONTROL */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold">Device Control Panel</h2>
+          {/* TAB 3: DEVICE CONTROL PANEL */}
+          {activeTab === "Device Control" && (
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Device Control Panel</h2>
 
-              <button
-                onClick={toggleControlMode}
-                className={`px-5 py-3 rounded-2xl font-bold text-white transition ${
-                  controlMode === "auto" ? "bg-[#C97B36]" : "bg-[#3A2B1C]"
-                }`}
-              >
-                {controlMode === "auto" ? "Auto Mode Enabled" : "Manual Mode Active"}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-              <ControlCard
-                title="Heater Control"
-                icon={<Flame className="text-[#C97B36]" />}
-              >
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Status</span>
-                    <span
-                      className={`font-semibold ${
-                        actuators.heater === "ON" ? "text-green-600" : "text-red-500"
-                      }`}
-                    >
-                      {actuators.heater}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span>Power</span>
-                      <span>{actuators.heater === "ON" ? "100%" : "0%"}</span>
-                    </div>
-
-                    <div className="h-3 bg-[#eee] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#C97B36] transition-all"
-                        style={{ width: actuators.heater === "ON" ? "100%" : "0%" }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleActuatorToggle("heater")}
-                    className={`w-full py-3 rounded-2xl text-white transition ${
-                      actuators.heater === "ON" ? "bg-[#E53935]" : "bg-green-600"
-                    }`}
-                  >
-                    {actuators.heater === "ON" ? "Turn OFF" : "Turn ON"}
-                  </button>
-                </div>
-              </ControlCard>
-
-              <ControlCard
-                title="Fan PWM"
-                icon={<Fan className="text-[#C97B36]" />}
-              >
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>RPM</span>
-                    <span>{actuators.fan === "ON" ? `${2000 + Math.round(fanPwm * 5)} RPM` : "0 RPM"}</span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={fanPwm}
-                    onChange={(e) => handleFanPwmChange(parseInt(e.target.value))}
-                    className="w-full"
-                    disabled={controlMode !== "manual"}
-                  />
-
-                  <div className="text-center text-sm text-gray-500">
-                    PWM Speed {fanPwm}%
-                  </div>
-                </div>
-              </ControlCard>
-
-              <ControlCard
-                title="Blower"
-                icon={<Wind className="text-[#C97B36]" />}
-              >
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Status</span>
-                    <span
-                      className={`font-semibold ${
-                        actuators.fan === "ON" ? "text-green-600" : "text-red-500"
-                      }`}
-                    >
-                      {actuators.fan === "ON" ? "ACTIVE" : "INACTIVE"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span>Speed</span>
-                      <span>{actuators.fan === "ON" ? "Medium" : "Off"}</span>
-                    </div>
-
-                    <div className="h-3 bg-[#eee] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#8B5E34] transition-all"
-                        style={{ width: actuators.fan === "ON" ? "55%" : "0%" }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleActuatorToggle("fan")}
-                    className="w-full py-3 rounded-2xl bg-[#3A2B1C] text-white hover:opacity-90 transition"
-                  >
-                    Toggle Blower
-                  </button>
-                </div>
-              </ControlCard>
-
-              <ControlCard
-                title="UV Sterilizer"
-                icon={<ShieldCheck className="text-[#C97B36]" />}
-              >
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Status</span>
-                    <span
-                      className={`font-semibold ${
-                        actuators.uv_light === "ON" ? "text-green-600" : "text-red-500"
-                      }`}
-                    >
-                      {actuators.uv_light === "ON" ? "ACTIVE" : "INACTIVE"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span>Safety</span>
-                    <span>Auto Enabled</span>
-                  </div>
-
-                  <div className="bg-[#FFF4E5] rounded-2xl p-3 text-sm">
-                    UV sterilizer kills 99% of bacteria.
-                  </div>
-
-                  <button
-                    onClick={() => handleActuatorToggle("uv_light")}
-                    className={`w-full py-3 rounded-2xl text-white transition ${
-                      actuators.uv_light === "ON" ? "bg-[#E53935]" : "bg-green-600"
-                    }`}
-                  >
-                    {actuators.uv_light === "ON" ? "Disable UV" : "Enable UV"}
-                  </button>
-                </div>
-              </ControlCard>
-            </div>
-          </section>
-
-          {/* PRESET MODES */}
-          <section>
-            <h2 className="text-2xl font-bold mb-5">
-              Drying Preset Modes
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-              {[
-                {
-                  title: "Quick Dry",
-                  desc: "High temperature & fast drying",
-                },
-                {
-                  title: "Normal Dry",
-                  desc: "Balanced everyday mode",
-                },
-                {
-                  title: "Sport Shoes",
-                  desc: "Odor reduction & UV focus",
-                },
-                {
-                  title: "Leather Mode",
-                  desc: "Low temperature safe drying",
-                },
-              ].map((mode, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm"
+                <button
+                  onClick={toggleControlMode}
+                  className={`px-5 py-3 rounded-2xl font-bold text-white transition ${
+                    controlMode === "auto" ? "bg-[#C97B36]" : "bg-[#3A2B1C]"
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-lg">{mode.title}</h3>
-
-                    <Zap className="text-[#C97B36]" />
-                  </div>
-
-                  <p className="text-gray-500 text-sm mb-5">
-                    {mode.desc}
-                  </p>
-
-                  <button
-                    onClick={() => activatePreset(mode.title)}
-                    className="w-full py-3 rounded-2xl bg-[#F5F1EA] hover:bg-[#C97B36] hover:text-white transition"
-                  >
-                    Activate
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* LOGS + ANALYTICS */}
-          <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-            {/* LOGS */}
-            <div className="xl:col-span-2 bg-white rounded-3xl p-5 border border-[#eee] shadow-sm">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-2xl font-bold">
-                  Drying History Logs
-                </h2>
-
-                <button className="text-[#C97B36]">
-                  View All
+                  {controlMode === "auto" ? "Auto Mode Enabled" : "Manual Mode Active"}
                 </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <ControlCard
+                  title="Heater (Hairdryer)"
+                  icon={<Flame className="text-[#C97B36]" />}
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Status</span>
+                      <span
+                        className={`font-semibold ${
+                          actuators.heater === "ON" ? "text-green-600" : "text-red-500"
+                        }`}
+                      >
+                        {actuators.heater}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span>Power</span>
+                        <span>{actuators.heater === "ON" ? "100%" : "0%"}</span>
+                      </div>
+
+                      <div className="h-3 bg-[#eee] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#C97B36] transition-all"
+                          style={{ width: actuators.heater === "ON" ? "100%" : "0%" }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleActuatorToggle("heater")}
+                      className={`w-full py-3 rounded-2xl text-white transition ${
+                        actuators.heater === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      }`}
+                    >
+                      {actuators.heater === "ON" ? "Turn OFF" : "Turn ON"}
+                    </button>
+                  </div>
+                </ControlCard>
+
+                <ControlCard
+                  title="Exhaust Fan"
+                  icon={<Fan className="text-[#C97B36]" />}
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Status</span>
+                      <span
+                        className={`font-semibold ${
+                          actuators.fan === "ON" ? "text-green-600" : "text-red-500"
+                        }`}
+                      >
+                        {actuators.fan === "ON" ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span>Speed</span>
+                        <span>{actuators.fan === "ON" ? "Max Speed" : "Off"}</span>
+                      </div>
+
+                      <div className="h-3 bg-[#eee] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#8B5E34] transition-all"
+                          style={{ width: actuators.fan === "ON" ? "100%" : "0%" }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleActuatorToggle("fan")}
+                      className={`w-full py-3 rounded-2xl text-white transition ${
+                        actuators.fan === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      }`}
+                    >
+                      {actuators.fan === "ON" ? "Turn OFF" : "Turn ON"}
+                    </button>
+                  </div>
+                </ControlCard>
+
+                <ControlCard
+                  title="UCV"
+                  icon={<ShieldCheck className="text-[#C97B36]" />}
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Status</span>
+                      <span
+                        className={`font-semibold ${
+                          actuators.uv_light === "ON" ? "text-green-600" : "text-red-500"
+                        }`}
+                      >
+                        {actuators.uv_light === "ON" ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span>Safety</span>
+                      <span>Auto Enabled</span>
+                    </div>
+
+                    <div className="bg-[#FFF4E5] rounded-2xl p-3 text-sm">
+                      UCV sterilizer kills 99% of bacteria.
+                    </div>
+
+                    <button
+                      onClick={() => handleActuatorToggle("uv_light")}
+                      className={`w-full py-3 rounded-2xl text-white transition ${
+                        actuators.uv_light === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      }`}
+                    >
+                      {actuators.uv_light === "ON" ? "Disable UCV" : "Enable UCV"}
+                    </button>
+                  </div>
+                </ControlCard>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 4: HISTORY LOGS */}
+          {activeTab === "History Logs" && (
+            <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm w-full">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-2xl font-bold">Drying History Logs</h2>
               </div>
 
               <div className="overflow-x-auto">
@@ -827,20 +854,20 @@ export default function SmartShoeDryerDashboard() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
+          )}
 
-            {/* ANALYTICS */}
-            <div className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm">
-              <h2 className="text-2xl font-bold mb-5">Analytics</h2>
+          {/* TAB 5: ANALYTICS SUMMARY */}
+          {activeTab === "Analytics" && (
+            <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm max-w-2xl">
+              <h2 className="text-2xl font-bold mb-5">Analytics Overview</h2>
 
-              <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="bg-[#F5F1EA] rounded-2xl p-4">
                   <div className="flex items-center gap-3">
                     <Clock3 className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">
-                        Avg Duration
-                      </h3>
+                      <h3 className="text-sm text-gray-500">Avg Duration</h3>
                       <p className="text-2xl font-bold">32 min</p>
                     </div>
                   </div>
@@ -850,9 +877,7 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Activity className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">
-                        Total Drying Today
-                      </h3>
+                      <h3 className="text-sm text-gray-500">Total Drying Today</h3>
                       <p className="text-2xl font-bold">12 Cycles</p>
                     </div>
                   </div>
@@ -862,9 +887,7 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Wind className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">
-                        Avg Odor Reduction
-                      </h3>
+                      <h3 className="text-sm text-gray-500">Avg Odor Reduction</h3>
                       <p className="text-2xl font-bold">68%</p>
                     </div>
                   </div>
@@ -874,18 +897,38 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Power className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">
-                        Energy Usage
-                      </h3>
+                      <h3 className="text-sm text-gray-500">Energy Usage</h3>
                       <p className="text-2xl font-bold">1.8 kWh</p>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
         </div>
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#2B1E16] text-white border-t border-[#3b2b21] z-50 flex justify-around py-3 px-2 shadow-lg">
+        {[
+          { name: "Dashboard", icon: <Home className="w-5 h-5" /> },
+          { name: "Monitoring", icon: <Activity className="w-5 h-5" /> },
+          { name: "Device Control", icon: <Power className="w-5 h-5" /> },
+          { name: "History Logs", icon: <Clock3 className="w-5 h-5" /> },
+          { name: "Analytics", icon: <Wind className="w-5 h-5" /> },
+        ].map((tab) => (
+          <button
+            key={tab.name}
+            onClick={() => setActiveTab(tab.name)}
+            className={`flex flex-col items-center gap-1 transition ${
+              activeTab === tab.name ? "text-[#C97B36]" : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            {tab.icon}
+            <span className="text-[10px] font-medium">{tab.name}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

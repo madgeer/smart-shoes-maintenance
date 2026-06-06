@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS devices (
     heater_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (heater_state IN ('ON', 'OFF')),
     uv_light_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (uv_light_state IN ('ON', 'OFF')),
     fan_state VARCHAR(10) NOT NULL DEFAULT 'OFF' CHECK (fan_state IN ('ON', 'OFF')),
+    active_shoe_id INTEGER, -- Dilacak oleh sistem untuk bahan sepatu aktif
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -85,3 +86,6 @@ CREATE TABLE IF NOT EXISTS maintenance_logs (
     action_taken VARCHAR(255) NOT NULL,
     maintenance_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 8. Add Foreign Key for active_shoe_id in devices
+ALTER TABLE devices ADD CONSTRAINT fk_active_shoe FOREIGN KEY (active_shoe_id) REFERENCES shoes(id) ON DELETE SET NULL;

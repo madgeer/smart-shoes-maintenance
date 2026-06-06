@@ -52,7 +52,7 @@ const getDevices = async (req, res) => {
 
   try {
     const devices = await db.query(
-      'SELECT id, device_name, device_code, status, control_mode, heater_state, uv_light_state, fan_state, created_at FROM devices WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, device_name, device_code, status, control_mode, heater_state, uv_light_state, fan_state, active_shoe_id, created_at FROM devices WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
 
@@ -72,7 +72,7 @@ const getDevices = async (req, res) => {
 // 3. Mengirim perintah kendali manual aktuator ke perangkat via MQTT
 const sendDeviceCommand = async (req, res) => {
   const { device_code } = req.params;
-  const { mode, actuators } = req.body;
+  const { mode, actuators, active_shoe_id } = req.body;
 
   if (!device_code || !actuators) {
     return res.status(400).json({
@@ -95,15 +95,25 @@ const sendDeviceCommand = async (req, res) => {
     const hState = actuators.heater || 'OFF';
     const uvState = actuators.uv_light || 'OFF';
     const fState = actuators.fan || 'OFF';
+    const shoeIdVal = active_shoe_id || null;
 
     // Simpan status kontrol baru ke database PostgreSQL
-    await db.query(
-      `UPDATE devices 
-       SET control_mode = $1, heater_state = $2, uv_light_state = $3, fan_state = $4 
-       WHERE device_code = $5`,
-      [activeMode, hState, uvState, fState, device_code]
-    );
-    console.log(`[DEVICE-CTRL] Status kontrol disimpan ke DB untuk ${device_code}: mode=${activeMode}, heater=${hState}, uv=${uvState}, fan=${fState}`);
+    if (shoeIdVal) {
+      await db.query(
+        `UPDATE devices 
+         SET control_mode = $1, heater_state = $2, uv_light_state = $3, fan_state = $4, active_shoe_id = $5 
+         WHERE device_code = $6`,
+        [activeMode, hState, uvState, fState, shoeIdVal, device_code]
+      );
+    } else {
+      await db.query(
+        `UPDATE devices 
+         SET control_mode = $1, heater_state = $2, uv_light_state = $3, fan_state = $4 
+         WHERE device_code = $5`,
+        [activeMode, hState, uvState, fState, device_code]
+      );
+    }
+    console.log(`[DEVICE-CTRL] Status kontrol disimpan ke DB untuk ${device_code}: mode=${activeMode}, heater=${hState}, uv=${uvState}, fan=${fState}, shoe_id=${shoeIdVal}`);
 
     const commandTopic = `v1/devices/${device_code}/commands`;
     const commandPayload = {
@@ -115,6 +125,7 @@ const sendDeviceCommand = async (req, res) => {
         fan: fState
       },
       mode: activeMode,
+      active_shoe_id: shoeIdVal,
       timestamp: new Date().toISOString()
     };
 

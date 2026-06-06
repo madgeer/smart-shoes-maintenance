@@ -32,6 +32,9 @@ class SmellRequest(BaseModel):
     kelembapan_sekarang: float = Field(
         ..., ge=10.0, le=100.0, description="Nilai kelembapan sepatu saat ini (%)"
     )
+    suhu: float = Field(
+        25.0, ge=10.0, le=70.0, description="Nilai suhu sensor saat ini (°C)"
+    )
 
 
 class SmellResponse(BaseModel):

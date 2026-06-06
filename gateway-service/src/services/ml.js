@@ -9,15 +9,16 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
  * @param {number} kelembapanSekarang - Nilai kelembapan sensor DHT22
  * @returns {Promise<object>} Hasil prediksi dari ML Service
  */
-const predictSmell = async (gasMq135, kelembapanSekarang) => {
+const predictSmell = async (gasMq135, kelembapanSekarang, suhu) => {
   try {
     const url = `${ML_SERVICE_URL}/predict/smell`;
     const payload = {
       gas_mq135: parseFloat(gasMq135),
-      kelembapan_sekarang: parseFloat(kelembapanSekarang)
+      kelembapan_sekarang: parseFloat(kelembapanSekarang),
+      suhu: parseFloat(suhu || 25.0)
     };
 
-    console.log(`[ML-SERVICE] Mengirim data ke K-Means:`, payload);
+    console.log(`[ML-SERVICE] Mengirim data ke Classifier:`, payload);
     const response = await axios.post(url, payload, { timeout: 2000 });
     return response.data;
   } catch (error) {

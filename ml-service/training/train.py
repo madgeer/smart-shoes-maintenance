@@ -47,57 +47,64 @@ def train_drying_time_estimator() -> None:
 
 
 def train_smell_detector() -> None:
-    """Melatih K-Means untuk mendeteksi bau sepatu secara 'buta' & memetakan klaster."""
-    print(">>> Melatih Model Detektor Bau (K-Means Clustering)...")
+    """Melatih Random Forest Classifier untuk mendeteksi bau sepatu."""
+    print(">>> Melatih Model Detektor Bau (Random Forest)...")
     
     # Mempersiapkan path
     dataset_path = Path("dataset/shoe_sensor.csv")
+    df = pd.read_csv(str(dataset_path))
     
-    # Preprocessing
-    X_scaled, scaler = preprocess_smell_data(str(dataset_path))
+    # 1. Membersihkan anomali semprotan parfum (gas_level > 180 ppm)
+    print(f"    [INFO] Data awal: {len(df)} baris")
+    df = df[df['gas_level'] <= 180.0].reset_index(drop=True)
+    print(f"    [INFO] Data setelah pembersihan outlier: {len(df)} baris")
     
-    # Fit Model
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    kmeans.fit(X_scaled)
+    # 2. Pelabelan berdasarkan Aturan Batas Sensor (Rule-based Labeling)
+    conds = [
+        df['gas_level'] <= 158.0,
+        (df['gas_level'] > 165.0) | (df['humidity'] > 80.0)
+    ]
+    choices = [0, 2] # 0: Tidak Bau, 2: Sangat Bau
+    df['kategori_bau'] = np.select(conds, choices, default=1) # 1: Bau Sedang
     
-    # Hitung Jarak Euclidean dari Centroid ke Origin (0,0)
-    centroids = kmeans.cluster_centers_
-    distances = [float(np.sqrt(c[0]**2 + c[1]**2)) for c in centroids]
+    X = df[['temperature', 'humidity', 'gas_level']]
+    y = df['kategori_bau']
     
-    print("    [Centroids] setelah Latihan:")
-    for idx, (c, dist) in enumerate(zip(centroids, distances)):
-        print(f"      - Klaster {idx}: Gas={c[0]:.4f}, Kelembapan={c[1]:.4f} | Jarak={dist:.4f}")
-        
-    # Urutkan klaster: Terdekat -> Wangi (0), Sedang -> Normal (1), Terjauh -> Bau (2)
-    sorted_indices = np.argsort(distances)
-    cluster_mapping = {
-        int(sorted_indices[0]): 0,
-        int(sorted_indices[1]): 1,
-        int(sorted_indices[2]): 2
-    }
+    # Membagi dataset menjadi Train & Test set (80:20)
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import RandomForestClassifier
     
-    print("    [Mapping] Hasil Jarak Euclidean:")
-    print(f"      - Klaster {sorted_indices[0]} (Terdekat) -> Wangi (0)")
-    print(f"      - Klaster {sorted_indices[1]} (Sedang)   -> Normal (1)")
-    print(f"      - Klaster {sorted_indices[2]} (Terjauh)  -> Bau (2)")
-    print(f"      - Dict: {cluster_mapping}")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
     
-    # Menyimpan Paket Model & Scaler
-    smell_package = {
-        'model': kmeans,
-        'cluster_mapping': cluster_mapping,
-        'scaler': scaler
-    }
+    # Standarisasi fitur
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
     
+    # Melatih Model Random Forest
+    model = RandomForestClassifier(random_state=42)
+    model.fit(X_train_scaled, y_train)
+    
+    # Evaluasi Model
+    y_pred = model.predict(X_test_scaled)
+    mse = mean_squared_error(y_test, y_pred)
+    
+    print(f"    [MSE]  : {mse:.4f}")
+    
+    # Menyimpan Model & Scaler untuk deployment
     output_dir = Path("trained_model")
     output_dir.mkdir(exist_ok=True)
     
-    joblib.dump(smell_package, output_dir / "smell_model.joblib")
+    joblib.dump(model, output_dir / "smell_model.joblib")
     joblib.dump(scaler, output_dir / "smell_scaler.joblib")
     print(f"    [INFO] Model & Scaler Bau berhasil disimpan di: {output_dir}\n")
 
 
 if __name__ == "__main__":
+    import pandas as pd
     train_drying_time_estimator()
     train_smell_detector()
     print(">>> Proses pelatihan selesai dengan sukses!")

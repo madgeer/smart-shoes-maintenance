@@ -29,8 +29,6 @@ async def lifespan(app: FastAPI):
 
     # Verifikasi kelengkapan file model sebelum meluncurkan server
     required_files = [
-        "maintenance_model.joblib",
-        "maintenance_scaler.joblib",
         "smell_model.joblib",
         "smell_scaler.joblib",
     ]
@@ -58,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Smart Shoes Maintenance ML API",
-    description="API Machine Learning untuk estimasi pengeringan sepatu (Regresi) & deteksi bau (K-Means).",
+    description="API Machine Learning untuk estimasi pengeringan sepatu (Heuristik) & deteksi bau (Random Forest).",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -135,6 +133,7 @@ async def predict_smell(request: SmellRequest):
             predictor.predict_smell_level(
                 gas_mq135=request.gas_mq135,
                 kelembapan_sekarang=request.kelembapan_sekarang,
+                suhu=request.suhu,
             )
         )
         return SmellResponse(
