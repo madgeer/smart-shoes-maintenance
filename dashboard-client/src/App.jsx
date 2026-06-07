@@ -34,7 +34,7 @@ import {
 function Card({ title, value, status, icon, color }) {
   return (
     <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#eee]">
-      <div className="flex items-center justify-between mb-4">
+      <div className={`flex items-center justify-between ${status ? 'mb-4' : ''}`}>
         <div>
           <h3 className="text-sm text-gray-500">{title}</h3>
           <h1 className="text-3xl font-bold mt-1 text-black">{value}</h1>
@@ -47,10 +47,12 @@ function Card({ title, value, status, icon, color }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-        <span className="text-sm text-gray-600">{status}</span>
-      </div>
+      {status && (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+          <span className="text-sm text-gray-600">{status}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -484,9 +486,9 @@ export default function SmartShoeDryerDashboard() {
           {[
             "Dashboard",
             "Monitoring",
-            "Device Control",
-            "History Logs",
-            "Analytics",
+            "Kontrol Perangkat",
+            "Riwayat",
+            "Analisis",
           ].map((item) => (
             <div
               key={item}
@@ -505,7 +507,7 @@ export default function SmartShoeDryerDashboard() {
           <div className="flex items-center gap-3">
             <Wifi className={deviceOnline ? "text-green-400" : "text-red-400"} />
             <div>
-              <h3 className="font-semibold">{deviceOnline ? "Device Connected" : "Device Offline"}</h3>
+              <h3 className="font-semibold">{deviceOnline ? "Perangkat Terhubung" : "Perangkat Tidak Terhubung"}</h3>
               <p className="text-sm text-gray-400">
                 {/*{deviceOnline ? "Device is active" : "Check power / network"}*/}
               </p>
@@ -598,7 +600,6 @@ export default function SmartShoeDryerDashboard() {
               <Card
                 title="Suhu"
                 value={`${sensorData.temperature.toFixed(1)}°C`}
-                status={sensorData.temperature > 40 ? "Heating" : "Stable"}
                 color="bg-orange-100"
                 icon={<Thermometer className="text-orange-500" />}
               />
@@ -606,7 +607,6 @@ export default function SmartShoeDryerDashboard() {
               <Card
                 title="Kelembapan"
                 value={`${sensorData.humidity.toFixed(1)}% RH`}
-                status={sensorData.humidity <= 15 ? "Dry (Optimal)" : "Drying"}
                 color="bg-blue-100"
                 icon={<Droplets className="text-blue-500" />}
               />
@@ -614,7 +614,6 @@ export default function SmartShoeDryerDashboard() {
               <Card
                 title="Kualitas Udara"
                 value={`${sensorData.gas_level.toFixed(0)} ppm`}
-                status={prediction?.smell?.kategori || "Normal"}
                 color={
                   prediction?.smell?.kategori === "Sangat Bau"
                     ? "bg-red-100"
@@ -633,22 +632,17 @@ export default function SmartShoeDryerDashboard() {
 
               <Card
                 title="Status Pengeringan"
-                value={prediction?.drying?.drying_status ? (prediction.drying.drying_status.includes("Selesai") ? "SELESAI" : "ACTIVE") : "IDLE"}
-                status={
-                  prediction?.drying?.estimated_drying_time !== undefined
-                    ? `${prediction.drying.estimated_drying_time} min sisa`
-                    : "Optimal"
-                }
+                value={prediction?.drying?.drying_status ? (prediction.drying.drying_status.includes("Selesai") ? "SELESAI" : "AKTIF") : "MENUNGGU"}
                 color="bg-green-100"
                 icon={<Activity className="text-green-600" />}
               />
             </section>
           )}
 
-          {/* ML PREDICTION CARDS */}
+          {/* ml prediction cards */}
           {activeTab === "Dashboard" && (
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Card Klasifikasi Kondisi Sepatu */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* card klasifikasi kondisi sepatu */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#eee]">
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${prediction?.smell?.kategori === "Sangat Bau" ? "bg-red-100"
@@ -697,7 +691,42 @@ export default function SmartShoeDryerDashboard() {
                 </div>
               </div>
 
-              {/* Estimasi Waktu Pengeringan */}
+              {/* card kondisi kekeringan sepatu */}
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#eee]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${sensorData.humidity <= 15 ? "bg-green-100" : sensorData.humidity <= 60 ? "bg-blue-100" : "bg-red-100"
+                    }`}>
+                    <Droplets className={`${sensorData.humidity <= 15 ? "text-green-500" : sensorData.humidity <= 60 ? "text-blue-500" : "text-red-500"
+                      }`} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm text-gray-500">Kondisi Kekeringan</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-2xl font-bold text-black">
+                    {sensorData.humidity <= 15 ? "Kering" : sensorData.humidity <= 60 ? "Hampir Kering" : "Basah"}
+                  </span>
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${sensorData.humidity <= 15 ? "bg-green-100 text-green-700" : sensorData.humidity <= 60 ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
+                    }`}>
+                    {sensorData.humidity <= 15 ? "✓ Optimal" : sensorData.humidity <= 60 ? "◎ Proses" : "◉ Ekstra Pemanasan"}
+                  </span>
+                </div>
+
+                <div className="bg-[#F5F1EA] rounded-2xl p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Tingkat Kelembapan</span>
+                    <span className="font-semibold text-[#3A2B1C]">{sensorData.humidity.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Suhu Saat Ini</span>
+                    <span className="font-semibold text-[#3A2B1C]">{sensorData.temperature.toFixed(1)}°C</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* estimasi waktu pengeringan */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#eee]">
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${prediction?.drying?.drying_status?.includes("Selesai") ? "bg-green-100" : "bg-blue-100"
@@ -754,7 +783,7 @@ export default function SmartShoeDryerDashboard() {
             </section>
           )}
 
-          {/* TAB 2: REALTIME MONITORING CHARTS */}
+          {/* tab2: realtime monitoring charts */}
           {activeTab === "Monitoring" && (
             <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
               <ChartCard
@@ -777,18 +806,18 @@ export default function SmartShoeDryerDashboard() {
             </section>
           )}
 
-          {/* TAB 3: DEVICE CONTROL PANEL */}
-          {activeTab === "Device Control" && (
+          {/* tab3: kontrol perangkat  */}
+          {activeTab === "Kontrol Perangkat" && (
             <section className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Device Control Panel</h2>
+                <h2 className="text-2xl font-bold">Panel Kontrol Perangkat</h2>
 
                 <button
                   onClick={toggleControlMode}
                   className={`px-5 py-3 rounded-2xl font-bold text-white transition ${controlMode === "auto" ? "bg-[#C97B36]" : "bg-[#3A2B1C]"
                     }`}
                 >
-                  {controlMode === "auto" ? "Auto Mode Enabled" : "Manual Mode Active"}
+                  {controlMode === "auto" ? "Mode Auto Aktif" : "Mode Manual Aktif"}
                 </button>
               </div>
 
@@ -824,10 +853,11 @@ export default function SmartShoeDryerDashboard() {
 
                     <button
                       onClick={() => handleActuatorToggle("heater")}
-                      className={`w-full py-3 rounded-2xl text-white transition ${actuators.heater === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      disabled={controlMode !== "manual"}
+                      className={`w-full py-3 rounded-2xl text-white transition ${controlMode !== "manual" ? "bg-gray-400 cursor-not-allowed" : actuators.heater === "ON" ? "bg-[#E53935]" : "bg-green-600"
                         }`}
                     >
-                      {actuators.heater === "ON" ? "Turn OFF" : "Turn ON"}
+                      {actuators.heater === "ON" ? "Matikan" : "Nyalakan"}
                     </button>
                   </div>
                 </ControlCard>
@@ -843,14 +873,14 @@ export default function SmartShoeDryerDashboard() {
                         className={`font-semibold ${actuators.fan === "ON" ? "text-green-600" : "text-red-500"
                           }`}
                       >
-                        {actuators.fan === "ON" ? "ACTIVE" : "INACTIVE"}
+                        {actuators.fan === "ON" ? "AKTIF" : "NONAKTIF"}
                       </span>
                     </div>
 
                     <div>
                       <div className="flex justify-between mb-2">
-                        <span>Speed</span>
-                        <span>{actuators.fan === "ON" ? "Max Speed" : "Off"}</span>
+                        <span>Kecepatan</span>
+                        <span>{actuators.fan === "ON" ? "Maksimal" : "Mati"}</span>
                       </div>
 
                       <div className="h-3 bg-[#eee] rounded-full overflow-hidden">
@@ -863,10 +893,11 @@ export default function SmartShoeDryerDashboard() {
 
                     <button
                       onClick={() => handleActuatorToggle("fan")}
-                      className={`w-full py-3 rounded-2xl text-white transition ${actuators.fan === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      disabled={controlMode !== "manual"}
+                      className={`w-full py-3 rounded-2xl text-white transition ${controlMode !== "manual" ? "bg-gray-400 cursor-not-allowed" : actuators.fan === "ON" ? "bg-[#E53935]" : "bg-green-600"
                         }`}
                     >
-                      {actuators.fan === "ON" ? "Turn OFF" : "Turn ON"}
+                      {actuators.fan === "ON" ? "Matikan" : "Nyalakan"}
                     </button>
                   </div>
                 </ControlCard>
@@ -882,25 +913,26 @@ export default function SmartShoeDryerDashboard() {
                         className={`font-semibold ${actuators.uv_light === "ON" ? "text-green-600" : "text-red-500"
                           }`}
                       >
-                        {actuators.uv_light === "ON" ? "ACTIVE" : "INACTIVE"}
+                        {actuators.uv_light === "ON" ? "AKTIF" : "NONAKTIF"}
                       </span>
                     </div>
 
                     <div className="flex justify-between">
-                      <span>Safety</span>
-                      <span>Auto Enabled</span>
+                      <span>Keamanan</span>
+                      <span>Otomatis</span>
                     </div>
 
                     <div className="bg-[#FFF4E5] rounded-2xl p-3 text-sm">
-                      UCV sterilizer kills 99% of bacteria.
+                      Sterilisator UCV membunuh 99% bakteri.
                     </div>
 
                     <button
                       onClick={() => handleActuatorToggle("uv_light")}
-                      className={`w-full py-3 rounded-2xl text-white transition ${actuators.uv_light === "ON" ? "bg-[#E53935]" : "bg-green-600"
+                      disabled={controlMode !== "manual"}
+                      className={`w-full py-3 rounded-2xl text-white transition ${controlMode !== "manual" ? "bg-gray-400 cursor-not-allowed" : actuators.uv_light === "ON" ? "bg-[#E53935]" : "bg-green-600"
                         }`}
                     >
-                      {actuators.uv_light === "ON" ? "Disable UCV" : "Enable UCV"}
+                      {actuators.uv_light === "ON" ? "Matikan UCV" : "Nyalakan UCV"}
                     </button>
                   </div>
                 </ControlCard>
@@ -908,11 +940,11 @@ export default function SmartShoeDryerDashboard() {
             </section>
           )}
 
-          {/* TAB 4: HISTORY LOGS */}
-          {activeTab === "History Logs" && (
+          {/* tab 4: riwayat pengeringan */}
+          {activeTab === "Riwayat" && (
             <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm w-full">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-2xl font-bold text-black">Drying History Logs</h2>
+                <h2 className="text-2xl font-bold text-black">Riwayat Pengeringan</h2>
               </div>
 
               <div className="overflow-x-auto overflow-y-auto max-h-[60vh] relative">
@@ -947,17 +979,17 @@ export default function SmartShoeDryerDashboard() {
             </section>
           )}
 
-          {/* TAB 5: ANALYTICS SUMMARY */}
-          {activeTab === "Analytics" && (
-            <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm max-w-2xl">
-              <h2 className="text-2xl font-bold mb-5 text-black">Analytics Overview</h2>
+          {/* tab 5: ringakasan analisis */}
+          {activeTab === "Analisis" && (
+            <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm w-full mx-auto ">
+              <h2 className="text-2xl font-bold mb-5 text-black">Ringkasan Analisis</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="bg-[#F5F1EA] rounded-2xl p-4">
                   <div className="flex items-center gap-3">
                     <Clock3 className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">Avg Duration</h3>
+                      <h3 className="text-sm text-gray-500">Durasi Rata - Rata</h3>
                       <p className="text-2xl font-bold">32 min</p>
                     </div>
                   </div>
@@ -967,8 +999,8 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Activity className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">Total Drying Today</h3>
-                      <p className="text-2xl font-bold">12 Cycles</p>
+                      <h3 className="text-sm text-gray-500">Total Pengeringan Hari Ini</h3>
+                      <p className="text-2xl font-bold">12 Siklus</p>
                     </div>
                   </div>
                 </div>
@@ -977,7 +1009,7 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Wind className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">Avg Odor Reduction</h3>
+                      <h3 className="text-sm text-gray-500">Rata - Rata Pengurangan Bau</h3>
                       <p className="text-2xl font-bold">68%</p>
                     </div>
                   </div>
@@ -987,7 +1019,7 @@ export default function SmartShoeDryerDashboard() {
                   <div className="flex items-center gap-3">
                     <Power className="text-[#C97B36]" />
                     <div>
-                      <h3 className="text-sm text-gray-500">Energy Usage</h3>
+                      <h3 className="text-sm text-gray-500">Rata - Rata Penggunaan Energi</h3>
                       <p className="text-2xl font-bold">1.8 kWh</p>
                     </div>
                   </div>
@@ -998,14 +1030,14 @@ export default function SmartShoeDryerDashboard() {
         </div>
       </main>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {/* mobile bottom navigation bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#2B1E16] text-white border-t border-[#3b2b21] z-50 flex justify-around py-3 px-2 shadow-lg">
         {[
           { name: "Dashboard", icon: <Home className="w-5 h-5" /> },
           { name: "Monitoring", icon: <Activity className="w-5 h-5" /> },
-          { name: "Device Control", icon: <Power className="w-5 h-5" /> },
-          { name: "History Logs", icon: <Clock3 className="w-5 h-5" /> },
-          { name: "Analytics", icon: <Wind className="w-5 h-5" /> },
+          { name: "Kontrol Perangkat", icon: <Power className="w-5 h-5" /> },
+          { name: "Riwayat", icon: <Clock3 className="w-5 h-5" /> },
+          { name: "Analisis", icon: <Wind className="w-5 h-5" /> },
         ].map((tab) => (
           <button
             key={tab.name}
@@ -1014,7 +1046,7 @@ export default function SmartShoeDryerDashboard() {
               }`}
           >
             {tab.icon}
-            <span className="text-[10px] font-medium">{tab.name}</span>
+            <span className="text-xs font-medium">{tab.name}</span>
           </button>
         ))}
       </div>
