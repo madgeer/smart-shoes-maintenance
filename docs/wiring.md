@@ -23,9 +23,9 @@ Berikut adalah tabel koneksi pin hardware lengkap pada sistem **Smart Shoes Main
 | **C** | **Blok Aktuator (Relay 4-Channel)** | | | | |
 | 9 | **Modul Relay** | VCC | Vin / 5V | Catu Daya Coil | **WAJIB 5V** agar coil relay menjepret kuat |
 | 10 | | GND | GND | Ground | Grounding modul relay |
-| 11 | | IN1 (Relay 1) | **GPIO 14** | Output Kontrol | Kontrol **Heater** (untuk menyalakan relay ini menggunakan low untuk menyalakannya)  |
-| 12 | | IN2 (Relay 2) | **GPIO 26** | Output Kontrol | Kontrol **Lampu UV Sterilizer** |
-| 13 | | IN4 (Relay 4) | **GPIO 27** | Output Kontrol | Kontrol **Power VCC Kipas PWM** |
+| 11 | | IN1 (Relay 2 - 1 Ch / 30A) | **GPIO 14** | Output Kontrol | Kontrol **Heater** (Active-Low dengan Hi-Z Bypass)  |
+| 12 | | IN2 (Relay 1 - 4 Ch) | **GPIO 27** | Output Kontrol | Kontrol **Lampu UV Sterilizer** (Active-Low dengan Hi-Z Bypass) |
+| 13 | | IN4 (Relay 1 - 4 Ch) | **GPIO 26** | Output Kontrol | Kontrol **Power VCC Kipas PWM** (Active-Low dengan Hi-Z Bypass) |
 
 ---
 
@@ -34,12 +34,12 @@ Berikut adalah tabel koneksi pin hardware lengkap pada sistem **Smart Shoes Main
 > [!IMPORTANT]
 > **Kebutuhan Catu Daya 5V Eksternal/Vin**:
 > - **Sensor Gas MQ-135**: Sensor ini memerlukan pemanas internal (*heating element*) agar peka mendeteksi gas bau. Hubungkan pin VCC sensor ke **Vin (5V)** ESP32, bukan pin 3.3V. Menghubungkannya ke 3.3V akan membuat pembacaan sensor tidak akurat.
-> - **Modul Relay 4-Channel**: Coil elektromagnetik pada relay memerlukan tegangan 5V stabil agar dapat beralih saklar (*switching*) secara sempurna. Hubungkan VCC relay ke **Vin (5V)** ESP32.
-
-> - **Model Relay 30A**:
+> - **Modul Relay**: Coil elektromagnetik pada relay memerlukan tegangan 5V stabil agar dapat beralih saklar (*switching*) secara sempurna. Hubungkan VCC relay ke **Vin (5V)** ESP32.
 
 > [!TIP]
-> **Logika Aktif Relay (Active-Low)**:
-> Firmware ini dikonfigurasi menggunakan logika **Active-Low** (`RELAY_ACTIVE_STATE LOW` di `Config.h`). Artinya:
-> - Mengirim sinyal `LOW` (GND) dari ESP32 $\rightarrow$ Relay akan **MENYALAKAN** beban listrik (Heater, UV, Kipas).
-> - Mengirim sinyal `HIGH` (3.3V) dari ESP32 $\rightarrow$ Relay akan **MEMATIKAN** beban listrik.
+> **Logika Aktif Relay & Hi-Z State Bypass**:
+> Seluruh modul relay menggunakan logika **Active-Low** (`LOW` untuk menyalakan). Namun, karena modul relay menggunakan catu daya 5V sedangkan logika GPIO ESP32 adalah 3.3V, terjadi perbedaan tegangan $5\text{V} - 3.3\text{V} = 1.7\text{V}$ saat ESP32 mengirim sinyal `HIGH`. Sisa tegangan 1.7V ini cukup untuk membuat optocoupler pada relay tetap menyala (sehingga relay tidak bisa mati).
+>
+> Untuk mengatasi ini, firmware menggunakan metode **Hi-Z State Bypass**:
+> - **Menyalakan Relay (`active = true`)**: GPIO dikonfigurasi sebagai `OUTPUT` dan diberi nilai `LOW` (0V). Arus mengalir lancar, relay menyala.
+> - **Mematikan Relay (`active = false`)**: GPIO dikonfigurasi sebagai `INPUT` (High-Impedance / Hi-Z). Hambatan pin naik hingga skala Gigaohm sehingga memutus total aliran arus bocor dari VCC 5V (0 mA). Optocoupler padam sepenuhnya dan relay mati seketika.

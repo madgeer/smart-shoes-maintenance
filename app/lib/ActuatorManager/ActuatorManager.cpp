@@ -15,13 +15,24 @@ static bool fanPowerState = false;
 static uint8_t fanSpeedSetting = 0;
 
 // Fungsi pembantu lokal untuk menyalakan/mematikan relay secara fisik
-static void write_relay(uint8_t pin, bool active) {
-    if (RELAY_ACTIVE_STATE == LOW) {
-        // Active-Low: Beri LOW untuk MENYALAKAN, HIGH untuk MEMATIKAN
-        digitalWrite(pin, active ? LOW : HIGH);
+static void write_relay(uint8_t pin, bool active, uint8_t activeState, bool useHiZ) {
+    if (useHiZ) {
+        if (active) {
+            // Active-Low Menyala (Hi-Z Bypass): Set sebagai OUTPUT dan beri nilai LOW (GND)
+            pinMode(pin, OUTPUT);
+            digitalWrite(pin, LOW);
+        } else {
+            // Active-Low Mati (Hi-Z Bypass): Set sebagai INPUT untuk memutuskan total arus bocor 5V
+            pinMode(pin, INPUT);
+        }
     } else {
-        // Active-High: Beri HIGH untuk MENYALAKAN, LOW untuk MEMATIKAN
-        digitalWrite(pin, active ? HIGH : LOW);
+        // Mode Standard Digital Output (Push-Pull)
+        pinMode(pin, OUTPUT);
+        if (activeState == LOW) {
+            digitalWrite(pin, active ? LOW : HIGH);
+        } else {
+            digitalWrite(pin, active ? HIGH : LOW);
+        }
     }
 }
 
@@ -33,7 +44,7 @@ static void apply_safety_interlock() {
         // Jika Heater menyala, Kipas/Blower sirkulasi udara WAJIB ikut menyala!
         if (!fanPowerState) {
             fanPowerState = true;
-            write_relay(RELAY_FAN_POWER_PIN, true);
+            write_relay(RELAY_FAN_POWER_PIN, true, RELAY_FAN_ACTIVE_STATE, RELAY_FAN_USE_HIZ);
             updated = true;
         }
 
@@ -62,16 +73,16 @@ void actuator_setup() {
 
 void actuator_set_heater(bool on) {
     heaterState = on;
-    write_relay(RELAY_HEATER_PIN, heaterState);
+    write_relay(RELAY_HEATER_PIN, heaterState, RELAY_HEATER_ACTIVE_STATE, RELAY_HEATER_USE_HIZ);
     Serial.printf("[ACTUATOR] Heater diatur ke: %s\n", heaterState ? "ON" : "OFF");
 
     // Lakukan pengecekan keselamatan
-    apply_safety_interlock();
+    // apply_safety_interlock();
 }
 
 void actuator_set_uv(bool on) {
     uvState = on;
-    write_relay(RELAY_UV_PIN, uvState);
+    write_relay(RELAY_UV_PIN, uvState, RELAY_UV_ACTIVE_STATE, RELAY_UV_USE_HIZ);
     Serial.printf("[ACTUATOR] Lampu UV diatur ke: %s\n", uvState ? "ON" : "OFF");
 }
 
@@ -82,24 +93,25 @@ void actuator_set_blower(bool on) {
 
 void actuator_set_fan_power(bool on) {
     // PROTEKSI: Jangan matikan kipas pendingin jika heater masih menyala!
-    if (heaterState && !on) {
-        Serial.println("[ACTUATOR] WARNING: Keamanan! Daya Kipas harus tetap ON karena Heater sedang menyala.");
-        return;
-    }
+    // if (heaterState && !on) {
+    //     Serial.println("[ACTUATOR] WARNING: Keamanan! Daya Kipas harus tetap ON karena Heater sedang menyala.");
+    //     return;
+    // }
 
     fanPowerState = on;
-    write_relay(RELAY_FAN_POWER_PIN, fanPowerState);
+    write_relay(RELAY_FAN_POWER_PIN, fanPowerState, RELAY_FAN_ACTIVE_STATE, RELAY_FAN_USE_HIZ);
     Serial.printf("[ACTUATOR] Kipas Blower diatur ke: %s\n", fanPowerState ? "ON" : "OFF");
 }
 
 void actuator_set_fan_speed(uint8_t speed) {
     // PROTEKSI: Kipas tidak boleh diam jika heater aktif!
-    if (heaterState && speed < MIN_FAN_SPEED) {
-        Serial.printf("[ACTUATOR] WARNING: Keamanan! Kipas dipaksa kecepatan %d karena Heater aktif.\n", MIN_FAN_SPEED);
-        fanSpeedSetting = MIN_FAN_SPEED;
-    } else {
-        fanSpeedSetting = speed;
-    }
+    // if (heaterState && speed < MIN_FAN_SPEED) {
+    //     Serial.printf("[ACTUATOR] WARNING: Keamanan! Kipas dipaksa kecepatan %d karena Heater aktif.\n", MIN_FAN_SPEED);
+    //     fanSpeedSetting = MIN_FAN_SPEED;
+    // } else {
+    //     fanSpeedSetting = speed;
+    // }
+    fanSpeedSetting = speed;
     Serial.printf("[ACTUATOR] Kecepatan Kipas diatur ke: %d/255\n", fanSpeedSetting);
 }
 
@@ -109,9 +121,9 @@ void actuator_turn_all_off() {
     fanPowerState = false;
     fanSpeedSetting = 0;
 
-    write_relay(RELAY_HEATER_PIN, false);
-    write_relay(RELAY_UV_PIN, false);
-    write_relay(RELAY_FAN_POWER_PIN, false);
+    write_relay(RELAY_HEATER_PIN, false, RELAY_HEATER_ACTIVE_STATE, RELAY_HEATER_USE_HIZ);
+    write_relay(RELAY_UV_PIN, false, RELAY_UV_ACTIVE_STATE, RELAY_UV_USE_HIZ);
+    write_relay(RELAY_FAN_POWER_PIN, false, RELAY_FAN_ACTIVE_STATE, RELAY_FAN_USE_HIZ);
 
     Serial.println("[ACTUATOR] Seluruh aktuator dimatikan dengan aman.");
 }

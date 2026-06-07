@@ -56,6 +56,20 @@ async function runMigration() {
       ADD COLUMN IF NOT EXISTS fan_state VARCHAR(10) NOT NULL DEFAULT 'OFF'
     `);
 
+    // 5. Tambah kolom active_shoe_id jika belum ada
+    console.log('[MIGRATION] Menambahkan kolom `active_shoe_id`...');
+    await client.query(`
+      ALTER TABLE devices 
+      ADD COLUMN IF NOT EXISTS active_shoe_id INTEGER
+    `);
+
+    console.log('[MIGRATION] Menambahkan foreign key constraint untuk `active_shoe_id`...');
+    await client.query('ALTER TABLE devices DROP CONSTRAINT IF EXISTS fk_active_shoe');
+    await client.query(`
+      ALTER TABLE devices 
+      ADD CONSTRAINT fk_active_shoe FOREIGN KEY (active_shoe_id) REFERENCES shoes(id) ON DELETE SET NULL
+    `);
+
     // 5. Tambah CONSTRAINT check untuk kolom-kolom tersebut agar aman
     console.log('[MIGRATION] Menambahkan check constraints...');
     
