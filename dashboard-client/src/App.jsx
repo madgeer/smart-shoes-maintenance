@@ -425,10 +425,14 @@ export default function SmartShoeDryerDashboard() {
           setPrediction(payload.prediction);
 
           if (
-            payload.prediction?.smell?.kategori === "Bau"
+            payload.prediction?.smell?.kategori === "Bau" ||
+            payload.prediction?.smell?.kategori === "Sangat Bau" ||
+            payload.prediction?.smell?.kategori === "Basah"
           ) {
             setAlert(
-              "Sepatu terdeteksi bau tinggi. Sistem merekomendasikan UCV sterilization."
+              payload.prediction?.smell?.kategori === "Basah"
+                ? "Sepatu terdeteksi basah tinggi. Sistem menyalakan pengeringan otomatis."
+                : "Sepatu terdeteksi bau tinggi. Sistem merekomendasikan UCV sterilization."
             );
           }
 
@@ -615,16 +619,16 @@ export default function SmartShoeDryerDashboard() {
                 title="Kualitas Udara"
                 value={`${sensorData.gas_level.toFixed(0)} ppm`}
                 color={
-                  prediction?.smell?.kategori === "Sangat Bau"
+                  prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah"
                     ? "bg-red-100"
-                    : prediction?.smell?.kategori === "Tidak Bau"
+                    : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering"
                       ? "bg-green-100"
                       : "bg-yellow-100"
                 }
                 icon={<Wind className={
-                  prediction?.smell?.kategori === "Sangat Bau"
+                  prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah"
                     ? "text-red-600"
-                    : prediction?.smell?.kategori === "Tidak Bau"
+                    : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering"
                       ? "text-green-600"
                       : "text-yellow-600"
                 } />}
@@ -645,12 +649,14 @@ export default function SmartShoeDryerDashboard() {
               {/* card klasifikasi kondisi sepatu */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#eee]">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${prediction?.smell?.kategori === "Sangat Bau" ? "bg-red-100"
-                    : prediction?.smell?.kategori === "Tidak Bau" ? "bg-green-100"
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                    prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah" ? "bg-red-100"
+                    : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering" ? "bg-green-100"
                       : "bg-yellow-100"
                     }`}>
-                    <Wind className={`${prediction?.smell?.kategori === "Sangat Bau" ? "text-red-500"
-                      : prediction?.smell?.kategori === "Tidak Bau" ? "text-green-500"
+                    <Wind className={`${
+                      prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah" ? "text-red-500"
+                      : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering" ? "text-green-500"
                         : "text-yellow-500"
                       }`} />
                   </div>
@@ -663,14 +669,15 @@ export default function SmartShoeDryerDashboard() {
                   <span className="text-2xl font-bold text-black">
                     {prediction?.smell?.kategori || "Menunggu..."}
                   </span>
-                  <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${prediction?.smell?.kategori === "Sangat Bau" ? "bg-red-100 text-red-700"
-                    : prediction?.smell?.kategori === "Tidak Bau" ? "bg-green-100 text-green-700"
-                      : prediction?.smell?.kategori === "Bau Sedang" ? "bg-yellow-100 text-yellow-700"
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
+                    prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah" ? "bg-red-100 text-red-700"
+                    : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering" ? "bg-green-100 text-green-700"
+                      : prediction?.smell?.kategori === "Bau Sedang" || prediction?.smell?.kategori === "Lembap" ? "bg-yellow-100 text-yellow-700"
                         : "bg-gray-100 text-gray-500"
                     }`}>
-                    {prediction?.smell?.kategori === "Sangat Bau" ? "⚠ Perlu Tindakan"
-                      : prediction?.smell?.kategori === "Bau Sedang" ? "⚠ Perlu Tindakan"
-                        : prediction?.smell?.kategori === "Tidak Bau" ? "● Stabil"
+                    {prediction?.smell?.kategori === "Sangat Bau" || prediction?.smell?.kategori === "Basah" ? "⚠ Perlu Tindakan"
+                      : prediction?.smell?.kategori === "Bau Sedang" || prediction?.smell?.kategori === "Lembap" ? "⚠ Perlu Tindakan"
+                        : prediction?.smell?.kategori === "Tidak Bau" || prediction?.smell?.kategori === "Kering" ? "● Stabil"
                           : "— Idle"}
                   </span>
                 </div>

@@ -36,7 +36,7 @@ const predictSmell = async (gasMq135, kelembapanSekarang, suhu) => {
 };
 
 /**
- * Memanggil ML Service untuk mendapatkan estimasi sisa waktu pengeringan sepatu (Regression)
+ * Memanggil ML Service untuk mendapatkan estimasi sisa waktu pengeringan sepatu (Perhitungan Matematika)
  * @param {number} kelembapanAwal - Kelembapan sepatu di awal pengeringan (%)
  * @param {number} kelembapanSekarang - Kelembapan sepatu saat ini (%)
  * @param {number} suhu - Suhu heater pengering (°C)
@@ -63,14 +63,14 @@ const predictDryingTime = async (kelembapanAwal, kelembapanSekarang, suhu, jenis
       sensor_bau: parseFloat(sensorBau)
     };
 
-    console.log(`[ML-SERVICE] Mengirim data ke Regresi Waktu:`, payload);
+    console.log(`[ML-SERVICE] Mengirim data ke Estimator Waktu (Matematika):`, payload);
     const response = await axios.post(url, payload, { timeout: 2000 });
     return response.data;
   } catch (error) {
     console.error(`[ML-SERVICE] Gagal memprediksi sisa waktu pengeringan:`, error.message);
     // Fallback default jika ML Service mati
     return {
-      sisa_waktu_menit: kelembapanSekarang <= 15.0 ? 0.0 : 30.0,
+      sisa_waktu_menit: kelembapanSekarang <= 25.0 ? 0.0 : 30.0,
       status: 'Sedang dikeringkan (Layanan ML sedang Offline)',
       is_fallback: true
     };

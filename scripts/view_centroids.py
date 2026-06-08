@@ -1,6 +1,6 @@
 # =========================================================================
-# SMART SHOES MAINTENANCE - ML CENTROID VIEWER UTILITY
-# File: view_centroids.py
+# SMART SHOES MAINTENANCE - ML DECISION TREE VIEWER UTILITY
+# File: view_centroids.py (Overwritten to view Decision Tree splits)
 # =========================================================================
 
 import os
@@ -10,61 +10,54 @@ import numpy as np
 # Path ke model trained
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model_path = os.path.join(base_dir, "ml-service", "trained_model", "smell_model.joblib")
+scaler_path = os.path.join(base_dir, "ml-service", "trained_model", "smell_scaler.joblib")
 
-if not os.path.exists(model_path):
+if not os.path.exists(model_path) or not os.path.exists(scaler_path):
     print("=========================================================")
-    print(" [ERROR] File model K-Means tidak ditemukan!")
-    print(f" Path: {model_path}")
-    print(" Pastikan kamu sudah menaruh file model atau melatih model.")
+    print(" [ERROR] File model Decision Tree atau Scaler tidak ditemukan!")
+    print(f" Path Model : {model_path}")
+    print(f" Path Scaler: {scaler_path}")
+    print(" Pastikan model sudah dilatih.")
     print("=========================================================")
     exit(1)
 
 try:
-    # 1. Memuat paket model
-    package = joblib.load(model_path)
-    kmeans = package['model']
-    cluster_mapping = package['cluster_mapping']
-    scaler = package['scaler']
-
-    # 2. Ambil centroid (titik tengah klaster) dalam skala normalisasi [0, 1]
-    centroids_scaled = kmeans.cluster_centers_
-
-    # 3. Kembalikan normalisasi ke nilai unit fisik asli menggunakan inverse_transform
-    centroids_original = scaler.inverse_transform(centroids_scaled)
-
-    # Invert mapping untuk mencari klaster asli berdasarkan label fisik
-    # cluster_mapping berupa: {klaster_asli: label_fisik}
-    inv_mapping = {v: k for k, v in cluster_mapping.items()}
-
-    kategori_names = {
-        0: "WANGI (Kering & Segar - Terdekat ke Origin)",
-        1: "NORMAL (Kondisi Sedang)",
-        2: "BAU (Lembap & Berbau - Terjauh dari Origin)"
-    }
-
-    print("\n=========================================================")
-    print("   TITIK TENGAH (CENTROID) K-MEANS AKTIF PADA SISTEM ML  ")
-    print("=========================================================")
-    print(" Menampilkan batas acuan koordinat sensor fisik saat ini:")
-    print("---------------------------------------------------------")
-
-    for label_fisik in sorted(inv_mapping.keys()):
-        klaster_asli = inv_mapping[label_fisik]
-        
-        # Ambil nilai koordinat sensor fisik asli
-        gas_ppm = centroids_original[klaster_asli][0]
-        humidity_percent = centroids_original[klaster_asli][1]
-        
-        # Ambil nilai koordinat normalisasi ter-scale [0, 1]
-        gas_norm = centroids_scaled[klaster_asli][0]
-        humidity_norm = centroids_scaled[klaster_asli][1]
-        
-        print(f" [+] Kategori: {kategori_names[label_fisik]}")
-        print(f"    -> Kadar Gas MQ-135  : {gas_ppm:.2f} ppm (Skala Norm: {gas_norm:.4f})")
-        print(f"    -> Kelembapan Udara   : {humidity_percent:.2f} %   (Skala Norm: {humidity_norm:.4f})")
-        print("---------------------------------------------------------")
-    print(" *Catatan: Batas ini akan bergeser otomatis saat retraining.")
-    print("=========================================================\n")
+    model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+    
+    print("\n========================================================")
+    print("   STRUKTUR LOGIKA POHON KEPUTUSAN (DECISION TREE) AKTIF")
+    print("========================================================")
+    
+    # Rata-rata dan standar deviasi dari scaler untuk mengembalikan standarisasi fitur
+    means = scaler.mean_
+    stds = np.sqrt(scaler.var_)
+    
+    tree = model.tree_
+    
+    def recurse(node, depth):
+        indent = "  " * depth
+        if tree.feature[node] != -2: # internal node
+            feature_idx = tree.feature[node]
+            feature_name = "Suhu" if feature_idx == 0 else "Kelembapan"
+            unit = "°C" if feature_idx == 0 else "% RH"
+            threshold_scaled = tree.threshold[node]
+            
+            # Balikkan standarisasi ke nilai fisik asli
+            threshold_original = threshold_scaled * stds[feature_idx] + means[feature_idx]
+            
+            print(f"{indent}IF {feature_name} <= {threshold_original:.2f}{unit}:")
+            recurse(tree.children_left[node], depth + 1)
+            print(f"{indent}ELSE (IF {feature_name} > {threshold_original:.2f}{unit}):")
+            recurse(tree.children_right[node], depth + 1)
+        else: # leaf node
+            # Kelas dengan jumlah suara terbanyak di daun ini
+            class_idx = np.argmax(tree.value[node])
+            class_names = {0: "KERING", 1: "LEMBAP", 2: "BASAH"}
+            print(f"{indent}==> MAKA STATUS: {class_names.get(class_idx)}")
+            
+    recurse(0, 1)
+    print("========================================================\n")
 
 except Exception as e:
-    print(f"[ERROR] Gagal memuat atau membaca data centroid: {str(e)}")
+    print(f"[ERROR] Gagal memuat atau membaca data Decision Tree: {str(e)}")

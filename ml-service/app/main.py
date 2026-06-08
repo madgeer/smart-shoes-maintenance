@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Smart Shoes Maintenance ML API",
-    description="API Machine Learning untuk estimasi pengeringan sepatu (Heuristik) & deteksi bau (Random Forest).",
+    description="API Machine Learning untuk estimasi pengeringan sepatu (Heuristik) & klasifikasi status kekeringan (Decision Tree).",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -121,7 +121,7 @@ async def predict_maintenance(request: MaintenanceRequest):
     tags=["Predictions"],
 )
 async def predict_smell(request: SmellRequest):
-    """Mendeteksi tingkat bau sepatu secara real-time menggunakan model K-Means."""
+    """Mengklasifikasikan status kekeringan sepatu (Kering, Lembap, Basah) menggunakan Decision Tree Classifier."""
     if predictor is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -168,30 +168,26 @@ async def trigger_retraining():
             detail=f"Gagal melatih ulang model: {result.get('error')}",
         )
         
-    reg_metrics = result.get("regression_metrics", {})
     smell_metrics = result.get("smell_metrics", {})
     
-    # 2. Reload model secara dinamis jika setidaknya satu model sukses dilatih ulang
-    if reg_metrics.get("status") == "success" or smell_metrics.get("status") == "success":
+    # 2. Reload model secara dinamis jika model sukses dilatih ulang
+    if smell_metrics.get("status") == "success":
         if predictor is not None:
             predictor.reload_models(model_dir=model_dir)
             return {
                 "success": True,
                 "message": "Pelatihan ulang model selesai dan model baru berhasil di-reload secara dinamis tanpa downtime!",
-                "regression_metrics": reg_metrics,
                 "smell_metrics": smell_metrics
             }
         else:
             return {
                 "success": True,
                 "message": "Pelatihan ulang model selesai, tetapi server predictor belum siap untuk me-reload.",
-                "regression_metrics": reg_metrics,
                 "smell_metrics": smell_metrics
             }
     else:
         return {
             "success": True,
             "message": "Proses pelatihan selesai dilewati karena baris data di database masih terlalu sedikit (minimal 10 baris). Model lama tetap aktif.",
-            "regression_metrics": reg_metrics,
             "smell_metrics": smell_metrics
         }
