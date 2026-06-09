@@ -4,14 +4,14 @@ require('dotenv').config();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 /**
- * Memanggil ML Service untuk mendapatkan prediksi klasifikasi bau sepatu (K-Means)
+ * Memanggil ML Service untuk mendapatkan prediksi klasifikasi tingkat kekeringan sepatu (Decision Tree)
  * @param {number} gasMq135 - Nilai sensor gas MQ-135
  * @param {number} kelembapanSekarang - Nilai kelembapan sensor DHT22
  * @returns {Promise<object>} Hasil prediksi dari ML Service
  */
-const predictSmell = async (gasMq135, kelembapanSekarang, suhu) => {
+const predictDryness = async (gasMq135, kelembapanSekarang, suhu) => {
   try {
-    const url = `${ML_SERVICE_URL}/predict/smell`;
+    const url = `${ML_SERVICE_URL}/predict/dryness`;
     const payload = {
       gas_mq135: parseFloat(gasMq135),
       kelembapan_sekarang: parseFloat(kelembapanSekarang),
@@ -22,7 +22,7 @@ const predictSmell = async (gasMq135, kelembapanSekarang, suhu) => {
     const response = await axios.post(url, payload, { timeout: 2000 });
     return response.data;
   } catch (error) {
-    console.error(`[ML-SERVICE] Gagal memprediksi bau sepatu:`, error.message);
+    console.error(`[ML-SERVICE] Gagal memprediksi tingkat kekeringan sepatu:`, error.message);
     // Fallback default jika ML Service mati agar sistem tetap jalan
     return {
       klaster_asli: -1,
@@ -78,6 +78,6 @@ const predictDryingTime = async (kelembapanAwal, kelembapanSekarang, suhu, jenis
 };
 
 module.exports = {
-  predictSmell,
+  predictDryness,
   predictDryingTime
 };

@@ -7,8 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models.schemas import (
     MaintenanceRequest,
     MaintenanceResponse,
-    SmellRequest,
-    SmellResponse,
+    DrynessRequest,
+    DrynessResponse,
 )
 from app.services.predictor import PredictorService
 from app.services.trainer import train_models_from_db
@@ -29,8 +29,8 @@ async def lifespan(app: FastAPI):
 
     # Verifikasi kelengkapan file model sebelum meluncurkan server
     required_files = [
-        "smell_model.joblib",
-        "smell_scaler.joblib",
+        "dryness_model.joblib",
+        "dryness_scaler.joblib",
     ]
     missing_files = [
         f for f in required_files if not os.path.exists(os.path.join(model_dir, f))
@@ -116,11 +116,11 @@ async def predict_maintenance(request: MaintenanceRequest):
 
 
 @app.post(
-    "/predict/smell",
-    response_model=SmellResponse,
+    "/predict/dryness",
+    response_model=DrynessResponse,
     tags=["Predictions"],
 )
-async def predict_smell(request: SmellRequest):
+async def predict_dryness(request: DrynessRequest):
     """Mengklasifikasikan status kekeringan sepatu (Kering, Lembap, Basah) menggunakan Decision Tree Classifier."""
     if predictor is None:
         raise HTTPException(
@@ -130,13 +130,13 @@ async def predict_smell(request: SmellRequest):
 
     try:
         klaster_asli, label, kategori, gas_norm, moist_norm = (
-            predictor.predict_smell_level(
+            predictor.predict_dryness_level(
                 gas_mq135=request.gas_mq135,
                 kelembapan_sekarang=request.kelembapan_sekarang,
                 suhu=request.suhu,
             )
         )
-        return SmellResponse(
+        return DrynessResponse(
             klaster_asli=klaster_asli,
             label=label,
             kategori=kategori,
@@ -146,7 +146,7 @@ async def predict_smell(request: SmellRequest):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Terjadi kesalahan saat memprediksi tingkat bau: {str(e)}",
+            detail=f"Terjadi kesalahan saat memprediksi tingkat kekeringan: {str(e)}",
         )
 
 
@@ -168,26 +168,26 @@ async def trigger_retraining():
             detail=f"Gagal melatih ulang model: {result.get('error')}",
         )
         
-    smell_metrics = result.get("smell_metrics", {})
+    dryness_metrics = result.get("dryness_metrics", {})
     
     # 2. Reload model secara dinamis jika model sukses dilatih ulang
-    if smell_metrics.get("status") == "success":
+    if dryness_metrics.get("status") == "success":
         if predictor is not None:
             predictor.reload_models(model_dir=model_dir)
             return {
                 "success": True,
                 "message": "Pelatihan ulang model selesai dan model baru berhasil di-reload secara dinamis tanpa downtime!",
-                "smell_metrics": smell_metrics
+                "dryness_metrics": dryness_metrics
             }
         else:
             return {
                 "success": True,
                 "message": "Pelatihan ulang model selesai, tetapi server predictor belum siap untuk me-reload.",
-                "smell_metrics": smell_metrics
+                "dryness_metrics": dryness_metrics
             }
     else:
         return {
             "success": True,
             "message": "Proses pelatihan selesai dilewati karena baris data di database masih terlalu sedikit (minimal 10 baris). Model lama tetap aktif.",
-            "smell_metrics": smell_metrics
+            "dryness_metrics": dryness_metrics
         }

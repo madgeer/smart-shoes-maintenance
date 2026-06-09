@@ -37,17 +37,17 @@ def train_models_from_db(model_dir: str = "trained_model") -> dict:
     try:
         # 1. Mengambil riwayat sensor untuk detektor kekeringan (Suhu & Kelembapan)
         print("[RETRAINING] Mengambil riwayat sensor untuk detektor kekeringan...")
-        query_smell = "SELECT humidity as kelembapan_sekarang, temperature as suhu FROM sensor_logs"
-        df_smell = pd.read_sql(query_smell, conn)
+        query_dryness = "SELECT humidity as kelembapan_sekarang, temperature as suhu FROM sensor_logs"
+        df_dryness = pd.read_sql(query_dryness, conn)
         
-        if len(df_smell) < 10:
-            print(f"[RETRAINING] Data tabel untuk Decision Tree terlalu sedikit ({len(df_smell)} baris). Melewati pelatihan.")
-            smell_metrics = {"status": "skipped", "reason": "Data kurang dari 10 baris"}
+        if len(df_dryness) < 10:
+            print(f"[RETRAINING] Data tabel untuk Decision Tree terlalu sedikit ({len(df_dryness)} baris). Melewati pelatihan.")
+            dryness_metrics = {"status": "skipped", "reason": "Data kurang dari 10 baris"}
         else:
-            print(f"[RETRAINING] Memproses {len(df_smell)} baris data untuk Decision Tree...")
+            print(f"[RETRAINING] Memproses {len(df_dryness)} baris data untuk Decision Tree...")
             
             # Rename kolom
-            df_smell = df_smell.rename(columns={
+            df_dryness = df_dryness.rename(columns={
                 'suhu': 'temperature',
                 'kelembapan_sekarang': 'humidity'
             })
@@ -55,39 +55,39 @@ def train_models_from_db(model_dir: str = "trained_model") -> dict:
             # Pelabelan berdasarkan Kombinasi Suhu & Kelembapan (Thermodynamic Rule-based Labeling)
             # Kelas 0: Kering, Kelas 1: Lembap, Kelas 2: Basah
             conds = [
-                (df_smell['humidity'] <= 35.0) | ((df_smell['humidity'] <= 45.0) & (df_smell['temperature'] >= 40.0)),
-                (df_smell['humidity'] > 70.0) | ((df_smell['humidity'] > 60.0) & (df_smell['temperature'] < 30.0))
+                (df_dryness['humidity'] <= 35.0) | ((df_dryness['humidity'] <= 45.0) & (df_dryness['temperature'] >= 40.0)),
+                (df_dryness['humidity'] > 70.0) | ((df_dryness['humidity'] > 60.0) & (df_dryness['temperature'] < 30.0))
             ]
             choices = [0, 2]
-            df_smell['drying_status'] = np.select(conds, choices, default=1)
+            df_dryness['drying_status'] = np.select(conds, choices, default=1)
             
-            X_smell = df_smell[['temperature', 'humidity']]
-            y_smell = df_smell['drying_status']
+            X_dryness = df_dryness[['temperature', 'humidity']]
+            y_dryness = df_dryness['drying_status']
             
             # Standarisasi fitur
-            scaler_smell = StandardScaler()
-            X_smell_scaled = scaler_smell.fit_transform(X_smell)
+            scaler_dryness = StandardScaler()
+            X_dryness_scaled = scaler_dryness.fit_transform(X_dryness)
             
             # Melatih Model Decision Tree dengan kedalaman maksimal agar mudah divisualisasikan
             model_dt = DecisionTreeClassifier(max_depth=3, random_state=42)
-            model_dt.fit(X_smell_scaled, y_smell)
+            model_dt.fit(X_dryness_scaled, y_dryness)
             
             # Simpan model & scaler ke trained_model/
             out_path = Path(model_dir)
             out_path.mkdir(exist_ok=True)
-            joblib.dump(model_dt, out_path / "smell_model.joblib")
-            joblib.dump(scaler_smell, out_path / "smell_scaler.joblib")
+            joblib.dump(model_dt, out_path / "dryness_model.joblib")
+            joblib.dump(scaler_dryness, out_path / "dryness_scaler.joblib")
             
-            smell_metrics = {
+            dryness_metrics = {
                 "status": "success",
-                "row_count": len(df_smell),
+                "row_count": len(df_dryness),
                 "model_type": "DecisionTreeClassifier"
             }
             print(f"[RETRAINING] Model Decision Tree sukses diperbarui!")
  
         return {
             "success": True,
-            "smell_metrics": smell_metrics
+            "dryness_metrics": dryness_metrics
         }
         
     except Exception as e:
@@ -95,7 +95,7 @@ def train_models_from_db(model_dir: str = "trained_model") -> dict:
         return {
             "success": False, 
             "error": str(e),
-            "smell_metrics": {"status": "failed", "reason": str(e)}
+            "dryness_metrics": {"status": "failed", "reason": str(e)}
         }
         
     finally:

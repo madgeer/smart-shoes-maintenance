@@ -24,8 +24,8 @@ class MaintenanceResponse(BaseModel):
     sisa_waktu_menit: float = Field(..., description="Sisa waktu pengeringan (menit)")
     status: str = Field(..., description="Status kelayakan kondisi pengeringan")
 
-class SmellRequest(BaseModel):
-    """Skema input untuk request deteksi bau sepatu dari sensor."""
+class DrynessRequest(BaseModel):
+    """Skema input untuk request deteksi kekeringan sepatu dari sensor."""
     gas_mq135: float = Field(
         ..., ge=100.0, le=1000.0, description="Nilai mentah sensor gas MQ-135"
     )
@@ -37,11 +37,11 @@ class SmellRequest(BaseModel):
     )
 
 
-class SmellResponse(BaseModel):
-    """Skema output untuk response klasifikasi bau sepatu dari K-Means."""
+class DrynessResponse(BaseModel):
+    """Skema output untuk response klasifikasi tingkat kekeringan sepatu dari Decision Tree."""
 
-    klaster_asli: int = Field(..., description="ID klaster asli dari K-Means")
-    label: int = Field(..., description="Label tingkat bau terurut (0: Wangi, 1: Normal, 2: Bau)")
-    kategori: str = Field(..., description="Kategori deskriptif tingkat bau")
+    klaster_asli: int = Field(..., description="ID label asli")
+    label: int = Field(..., description="Label tingkat kekeringan terurut (0: Kering, 1: Lembap, 2: Basah)")
+    kategori: str = Field(..., description="Kategori deskriptif tingkat kekeringan")
     gas_mq135_normalisasi: float = Field(..., description="Nilai sensor gas ter-scaling [0-1]")
     kelembapan_normalisasi: float = Field(..., description="Nilai sensor kelembapan ter-scaling [0-1]")

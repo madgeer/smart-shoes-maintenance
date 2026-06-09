@@ -115,8 +115,8 @@ const initMqttListener = () => {
 
       // 5. Integrasi Paralel Inferensi Model ML Service
 
-      // A. Model 1: Klasifikasi Kondisi Sepatu (Decision Tree)
-      const smellPred = await mlService.predictSmell(gas_level, humidity, temperature);
+      // A. Model 1: Klasifikasi Tingkat Kekeringan Sepatu (Decision Tree)
+      const drynessPred = await mlService.predictDryness(gas_level, humidity, temperature);
 
       // B. Estimasi Sisa Waktu Pengeringan (Perhitungan Matematika Heuristik)
       // B.1 Cari kelembapan awal dalam sesi 12 jam terakhir
@@ -152,7 +152,7 @@ const initMqttListener = () => {
       `;
       await db.query(insertPredQuery, [
         logId,
-        smellPred.kategori,
+        drynessPred.kategori,
         dryingPred.sisa_waktu_menit,
         dryingPred.status
       ]);
@@ -164,11 +164,11 @@ const initMqttListener = () => {
         device_code,
         shoe_id: activeShoeId,
         prediction: {
-          smell: {
-            label: smellPred.label,
-            kategori: smellPred.kategori,
-            gas_mq135_normalisasi: smellPred.gas_mq135_normalisasi,
-            kelembapan_normalisasi: smellPred.kelembapan_normalisasi
+          dryness: {
+            label: drynessPred.label,
+            kategori: drynessPred.kategori,
+            gas_mq135_normalisasi: drynessPred.gas_mq135_normalisasi,
+            kelembapan_normalisasi: drynessPred.kelembapan_normalisasi
           },
           drying: {
             estimated_drying_time: dryingPred.sisa_waktu_menit,
@@ -178,17 +178,15 @@ const initMqttListener = () => {
         }
       });
 
-      // 8. Logika Peringatan Bau Parah / Basah & Notifikasi Otomatis
-      if (smellPred.kategori === 'Sangat Bau' || smellPred.kategori === 'Basah' || humidity > 75.0) {
+      // 8. Logika Peringatan Sepatu Basah & Notifikasi Otomatis
+      if (drynessPred.kategori === 'Basah' || humidity > 75.0) {
         let alertTitle = 'Peringatan Kelembapan Tinggi!';
         let alertMsg = `Sepatu terdeteksi sangat lembap (${humidity.toFixed(1)}%). Direkomendasikan sterilisasi & pengeringan otomatis.`;
         let alertType = 'WARNING';
 
-        if (smellPred.kategori === 'Sangat Bau' || smellPred.kategori === 'Basah') {
-          alertTitle = smellPred.kategori === 'Basah' ? 'Deteksi Sepatu Basah!' : 'Deteksi Bau Sepatu!';
-          alertMsg = smellPred.kategori === 'Basah' 
-            ? `Tingkat kelembapan sepatu terdeteksi sangat tinggi (Basah). Sistem mengaktifkan pengeringan.`
-            : `Tingkat bau sepatu terdeteksi sangat kurang sedap. Sistem menyalakan sterilisator lampu UV secara otomatis.`;
+        if (drynessPred.kategori === 'Basah') {
+          alertTitle = 'Deteksi Sepatu Basah!';
+          alertMsg = `Tingkat kelembapan sepatu terdeteksi sangat tinggi (Basah). Sistem mengaktifkan pengeringan otomatis.`;
           alertType = 'DANGER';
         }
 
@@ -208,10 +206,9 @@ const initMqttListener = () => {
           timestamp: logTimestamp
         });
 
-        // Kirim Notifikasi ke Telegram Bot (tidak terpakai)
-        if (smellPred.kategori === 'Sangat Bau' || smellPred.kategori === 'Basah') {
-          const conditionLabel = smellPred.kategori === 'Basah' ? 'Basah' : 'Sangat Bau';
-          const tgMessage = `🚨 *DETEKSI KONDISI SEPATU!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Kondisi: *${conditionLabel}*)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi dan pengeringan.`;
+        // Kirim Notifikasi ke Telegram Bot
+        if (drynessPred.kategori === 'Basah') {
+          const tgMessage = `🚨 *DETEKSI KONDISI SEPATU!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Kondisi: *Basah*)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi dan pengeringan.`;
           sendTelegramNotification(tgMessage);
         } else if (humidity > 75.0) {
           const tgMessage = `⚠️ *PERINGATAN KELEMBAPAN TINGGI!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Basah Sekali)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSepatu terdeteksi basah sekali. Sistem mengaktifkan Heater dan Blower otomatis untuk memulai pengeringan.`;
@@ -246,11 +243,11 @@ const initMqttListener = () => {
       } else {
         // B. JIKA MODE AUTO: Lakukan kalkulasi otomatis
         // - Heater aktif jika kelembapan belum optimal kering (>25%)
-        // - UV aktif jika bau terdeteksi 'Sangat Bau' (mencegah bakteri)
+        // - UV aktif jika tingkat kekeringan Basah atau Lembap (mencegah bakteri)
         // - Kipas aktif jika salah satu heater atau UV menyala
         const heaterState = humidity > 25.0 ? 'ON' : 'OFF';
-        const uvState = (smellPred.kategori === 'Sangat Bau' || smellPred.kategori === 'Basah') ? 'ON' : 'OFF';
-        const fanState = (humidity > 25.0 || smellPred.kategori === 'Sangat Bau' || smellPred.kategori === 'Basah') ? 'ON' : 'OFF';
+        const uvState = (drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
+        const fanState = (humidity > 25.0 || drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
 
         // Deteksi transisi proses pengeringan selesai (Heater dari ON berubah menjadi OFF)
         if (device.heater_state === 'ON' && heaterState === 'OFF') {

@@ -13,8 +13,8 @@ class PredictorService:
     def reload_models(self, model_dir: str) -> None:
         """Memuat ulang model detektor kekeringan secara dinamis tanpa downtime."""
         print(f"[DYNAMIC-RELOAD] Memuat ulang model Decision Tree dari: {model_dir}")
-        self.smell_model = joblib.load(os.path.join(model_dir, "smell_model.joblib"))
-        self.smell_scaler = joblib.load(os.path.join(model_dir, "smell_scaler.joblib"))
+        self.dryness_model = joblib.load(os.path.join(model_dir, "dryness_model.joblib"))
+        self.dryness_scaler = joblib.load(os.path.join(model_dir, "dryness_scaler.joblib"))
         print("[DYNAMIC-RELOAD] Model Decision Tree sukses dimuat ulang!")
 
     def predict_drying_time(self, kelembapan_awal: float, kelembapan_sekarang: float, suhu: float, jenis_bahan: int, sensor_bau: float) -> Tuple[float, str]:
@@ -50,18 +50,18 @@ class PredictorService:
 
         return round(sisa_waktu, 2), status
 
-    def predict_smell_level(self, gas_mq135: float, kelembapan_sekarang: float, suhu: float = 25.0) -> Tuple[int, int, str, float, float]:
+    def predict_dryness_level(self, gas_mq135: float, kelembapan_sekarang: float, suhu: float = 25.0) -> Tuple[int, int, str, float, float]:
         """Memprediksi status kekeringan sepatu (Kering, Lembap, Basah) menggunakan model Decision Tree."""
         import pandas as pd
         
         # Model Decision Tree: Menggunakan 2 fitur (temperature, humidity)
         input_df = pd.DataFrame([[suhu, kelembapan_sekarang]], columns=['temperature', 'humidity'])
-        input_scaled = self.smell_scaler.transform(input_df)
+        input_scaled = self.dryness_scaler.transform(input_df)
         
-        label = int(self.smell_model.predict(input_scaled)[0])
+        label = int(self.dryness_model.predict(input_scaled)[0])
         klaster_asli = label
         
-        gas_norm = 0.0  # Dummy karena tidak lagi menggunakan sensor gas
+        gas_norm = 0.0  # Dummy karena tidak lagi menggunakan sensor gas MQ-135
         moist_norm = float(input_scaled[0][1])
         kategori_mapping = {0: "Kering", 1: "Lembap", 2: "Basah"}
         

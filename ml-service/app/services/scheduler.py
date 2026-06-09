@@ -34,10 +34,10 @@ async def run_scheduler(predictor: PredictorService, model_dir: str = "trained_m
             
             # 2. Jika sukses melatih ulang, reload model secara dinamis tanpa downtime
             if result.get("success"):
-                smell_metrics = result.get("smell_metrics", {})
+                dryness_metrics = result.get("dryness_metrics", {})
                 
                 # Cek apakah model berhasil diperbarui
-                if smell_metrics.get("status") == "success":
+                if dryness_metrics.get("status") == "success":
                     predictor.reload_models(model_dir=model_dir)
                     print("[SCHEDULER] Siklus retraining SUKSES. Model dinamis di-reload.")
                 else:

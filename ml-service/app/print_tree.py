@@ -3,8 +3,8 @@ import joblib
 import numpy as np
 
 def main():
-    model_path = "trained_model/smell_model.joblib"
-    scaler_path = "trained_model/smell_scaler.joblib"
+    model_path = "trained_model/dryness_model.joblib"
+    scaler_path = "trained_model/dryness_scaler.joblib"
     
     if not os.path.exists(model_path) or not os.path.exists(scaler_path):
         print("Model atau scaler tidak ditemukan.")

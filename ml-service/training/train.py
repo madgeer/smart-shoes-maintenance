@@ -56,8 +56,8 @@ def train_decision_tree() -> None:
     output_dir = Path("trained_model")
     output_dir.mkdir(exist_ok=True)
     
-    joblib.dump(model_dt, output_dir / "smell_model.joblib")
-    joblib.dump(scaler, output_dir / "smell_scaler.joblib")
+    joblib.dump(model_dt, output_dir / "dryness_model.joblib")
+    joblib.dump(scaler, output_dir / "dryness_scaler.joblib")
     
     print(f"    [INFO] Model Decision Tree sukses disimpan di: {output_dir}")
     print(f"    [INFO] Fitur yang digunakan: ['temperature', 'humidity']")
