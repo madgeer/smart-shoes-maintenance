@@ -484,7 +484,6 @@ export default function SmartShoeDryerDashboard() {
             "Monitoring",
             "Kontrol Perangkat",
             "Riwayat",
-            "Analisis",
           ].map((item) => (
             <div
               key={item}
@@ -942,55 +941,6 @@ export default function SmartShoeDryerDashboard() {
               </div>
             </section>
           )}
-
-          {/* tab 5: ringakasan analisis */}
-          {activeTab === "Analisis" && (
-            <section className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm w-full mx-auto ">
-              <h2 className="text-2xl font-bold mb-5 text-black">Ringkasan Analisis</h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="bg-[#F5F1EA] rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <Clock3 className="text-[#C97B36]" />
-                    <div>
-                      <h3 className="text-sm text-gray-500">Durasi Rata - Rata</h3>
-                      <p className="text-2xl font-bold">32 min</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#F5F1EA] rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <Activity className="text-[#C97B36]" />
-                    <div>
-                      <h3 className="text-sm text-gray-500">Total Pengeringan Hari Ini</h3>
-                      <p className="text-2xl font-bold">12 Siklus</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#F5F1EA] rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <Wind className="text-[#C97B36]" />
-                    <div>
-                      <h3 className="text-sm text-gray-500">Rata - Rata Pengurangan Bau</h3>
-                      <p className="text-2xl font-bold">68%</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#F5F1EA] rounded-2xl p-4">
-                  <div className="flex items-center gap-3">
-                    <Power className="text-[#C97B36]" />
-                    <div>
-                      <h3 className="text-sm text-gray-500">Rata - Rata Penggunaan Energi</h3>
-                      <p className="text-2xl font-bold">1.8 kWh</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
         </div>
       </main>
 
@@ -1001,7 +951,6 @@ export default function SmartShoeDryerDashboard() {
           { name: "Monitoring", icon: <Activity className="w-5 h-5" /> },
           { name: "Kontrol Perangkat", icon: <Power className="w-5 h-5" /> },
           { name: "Riwayat", icon: <Clock3 className="w-5 h-5" /> },
-          { name: "Analisis", icon: <Wind className="w-5 h-5" /> },
         ].map((tab) => (
           <button
             key={tab.name}

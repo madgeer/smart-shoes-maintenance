@@ -52,23 +52,23 @@ def train_models_from_db(model_dir: str = "trained_model") -> dict:
                 'kelembapan_sekarang': 'humidity'
             })
             
-            # Pelabelan berdasarkan Kombinasi Suhu & Kelembapan (Thermodynamic Rule-based Labeling)
+            # Pelabelan berdasarkan Kelembapan (Humidity-only Labeling)
             # Kelas 0: Kering, Kelas 1: Lembap, Kelas 2: Basah
             conds = [
-                (df_dryness['humidity'] <= 35.0) | ((df_dryness['humidity'] <= 45.0) & (df_dryness['temperature'] >= 40.0)),
-                (df_dryness['humidity'] > 70.0) | ((df_dryness['humidity'] > 60.0) & (df_dryness['temperature'] < 30.0))
+                df_dryness['humidity'] <= 30.0,
+                df_dryness['humidity'] > 60.0
             ]
             choices = [0, 2]
             df_dryness['drying_status'] = np.select(conds, choices, default=1)
             
-            X_dryness = df_dryness[['temperature', 'humidity']]
+            X_dryness = df_dryness[['humidity']]
             y_dryness = df_dryness['drying_status']
             
             # Standarisasi fitur
             scaler_dryness = StandardScaler()
             X_dryness_scaled = scaler_dryness.fit_transform(X_dryness)
             
-            # Melatih Model Decision Tree dengan kedalaman maksimal agar mudah divisualisasikan
+            # Melatih Model Decision Tree
             model_dt = DecisionTreeClassifier(max_depth=3, random_state=42)
             model_dt.fit(X_dryness_scaled, y_dryness)
             

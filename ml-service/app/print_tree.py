@@ -24,13 +24,12 @@ def main():
     def recurse(node, depth):
         indent = "  " * depth
         if tree.feature[node] != -2: # internal node
-            feature_idx = tree.feature[node]
-            feature_name = "Suhu" if feature_idx == 0 else "Kelembapan"
-            unit = "°C" if feature_idx == 0 else "% RH"
+            feature_name = "Kelembapan"
+            unit = "% RH"
             threshold_scaled = tree.threshold[node]
             
             # Balikkan standarisasi ke nilai fisik asli
-            threshold_original = threshold_scaled * stds[feature_idx] + means[feature_idx]
+            threshold_original = threshold_scaled * stds[0] + means[0]
             
             print(f"{indent}IF {feature_name} <= {threshold_original:.1f}{unit}:")
             recurse(tree.children_left[node], depth + 1)

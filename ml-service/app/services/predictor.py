@@ -54,15 +54,15 @@ class PredictorService:
         """Memprediksi status kekeringan sepatu (Kering, Lembap, Basah) menggunakan model Decision Tree."""
         import pandas as pd
         
-        # Model Decision Tree: Menggunakan 2 fitur (temperature, humidity)
-        input_df = pd.DataFrame([[suhu, kelembapan_sekarang]], columns=['temperature', 'humidity'])
+        # Model Decision Tree: Menggunakan 1 fitur (humidity)
+        input_df = pd.DataFrame([[kelembapan_sekarang]], columns=['humidity'])
         input_scaled = self.dryness_scaler.transform(input_df)
         
         label = int(self.dryness_model.predict(input_scaled)[0])
         klaster_asli = label
         
         gas_norm = 0.0  # Dummy karena tidak lagi menggunakan sensor gas MQ-135
-        moist_norm = float(input_scaled[0][1])
+        moist_norm = float(input_scaled[0][0])
         kategori_mapping = {0: "Kering", 1: "Lembap", 2: "Basah"}
         
         kategori = kategori_mapping.get(label, "Tidak Diketahui")

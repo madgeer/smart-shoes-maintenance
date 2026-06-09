@@ -32,16 +32,16 @@ def train_decision_tree() -> None:
         
     print(f"    [INFO] Memproses {len(df)} baris data untuk Decision Tree...")
     
-    # Pelabelan berdasarkan Kombinasi Suhu & Kelembapan (Thermodynamic Rule-based Labeling)
+    # Pelabelan berdasarkan Kelembapan (Humidity-only Labeling)
     # Kelas 0: Kering, Kelas 1: Lembap, Kelas 2: Basah
     conds = [
-        (df['humidity'] <= 35.0) | ((df['humidity'] <= 45.0) & (df['temperature'] >= 40.0)),
-        (df['humidity'] > 70.0) | ((df['humidity'] > 60.0) & (df['temperature'] < 30.0))
+        df['humidity'] <= 30.0,
+        df['humidity'] > 60.0
     ]
     choices = [0, 2]
     df['drying_status'] = np.select(conds, choices, default=1)
     
-    X = df[['temperature', 'humidity']]
+    X = df[['humidity']]
     y = df['drying_status']
     
     # Standarisasi fitur
