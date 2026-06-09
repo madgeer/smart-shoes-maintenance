@@ -542,49 +542,71 @@ export default function SmartShoeDryerDashboard() {
         </header>
 
         <div className="p-6 space-y-6">
-          {/* ALERT */}
-          {alert && (
-            <div className="bg-[#FFF4E5] border border-[#FFB74D] text-[#8B5E34] rounded-2xl p-4 flex items-center gap-3">
-              <AlertTriangle />
-              <p>{alert}</p>
-            </div>
-          )}
           {/* BANNER SEPATU AKTIF */}
-          {selectedShoeId && (activeTab === "Dashboard" || activeTab === "Device Control") && (
-            <div className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {(activeTab === "Dashboard" || activeTab === "Kontrol Perangkat") && (
+            <div className="bg-white rounded-3xl p-5 border border-[#eee] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#F5F1EA] flex items-center justify-center font-bold text-[#C97B36] text-xl">
-                  👟
+                  {selectedShoeId !== 0 ? "👟" : "🚫"}
                 </div>
                 <div>
                   <h3 className="font-bold text-[#3A2B1C] text-lg">
-                    {shoes.find(s => s.id === selectedShoeId)?.shoe_name || "Memuat..."}
+                    {selectedShoeId !== 0 
+                      ? `Bahan Sepatu: ${shoes.find(s => s.id === selectedShoeId)?.shoe_material || "Kanvas"}` 
+                      : "Status: Boks Kosong"
+                    }
                   </h3>
                   <p className="text-sm text-gray-500">
-                    Bahan: <span className="font-semibold text-[#C97B36]">{shoes.find(s => s.id === selectedShoeId)?.shoe_material || "Kanvas"}</span>
+                    {selectedShoeId !== 0 
+                      ? "Sepatu berada di dalam boks pengering." 
+                      : "Masukkan sepatu untuk memulai proses."
+                    }
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                {/* <div className="bg-[#FFF4E5] px-4 py-2 rounded-2xl text-xs font-semibold text-[#8B5E34] w-full sm:w-auto text-center">
-                  ML Input: {shoes.find(s => s.id === selectedShoeId)?.shoe_material === 'Kulit' ? 'Kulit (Pengali Estimasi 0.7x)' : shoes.find(s => s.id === selectedShoeId)?.shoe_material === 'Mesh' ? 'Mesh (Pengali Estimasi 1.5x)' : 'Kanvas (Pengali Estimasi 1.0x)'}
-                </div> */}
-
-                {/* Dropdown pemilih sepatu (untuk HP & Desktop) */}
-                <div className="flex items-center gap-2 bg-[#F5F1EA] px-3 py-2 rounded-2xl border border-[#ececec] w-full sm:w-auto justify-between sm:justify-start">
-                  <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Bahan Sepatu:</span>
-                  <select
-                    value={selectedShoeId || ""}
-                    onChange={(e) => handleShoeChange(parseInt(e.target.value))}
-                    className="bg-transparent text-xs font-bold text-[#3A2B1C] focus:outline-none cursor-pointer w-full sm:w-auto"
+              
+              <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                {/* Konfirmasi Kehadiran Sepatu */}
+                <div className="flex bg-[#F5F1EA] p-1 rounded-2xl border border-[#ececec]">
+                  <button
+                    onClick={() => handleShoeChange(shoes[0]?.id || 1)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      selectedShoeId !== 0 
+                        ? "bg-[#C97B36] text-white shadow-sm" 
+                        : "text-gray-500 hover:text-[#3A2B1C]"
+                    }`}
                   >
-                    {shoes.map((shoe) => (
-                      <option key={shoe.id} value={shoe.id}>
-                        {shoe.shoe_material}
-                      </option>
-                    ))}
-                  </select>
+                    Ada Sepatu
+                  </button>
+                  <button
+                    onClick={() => handleShoeChange(0)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      selectedShoeId === 0 
+                        ? "bg-[#3A2B1C] text-white shadow-sm" 
+                        : "text-gray-500 hover:text-[#3A2B1C]"
+                    }`}
+                  >
+                    Boks Kosong
+                  </button>
                 </div>
+
+                {/* Dropdown pemilih bahan sepatu (Hanya tampil jika ada sepatu) */}
+                {selectedShoeId !== 0 && (
+                  <div className="flex items-center gap-2 bg-[#F5F1EA] px-3 py-2 rounded-2xl border border-[#ececec]">
+                    <span className="text-xs text-gray-600 font-medium whitespace-nowrap">Bahan Sepatu:</span>
+                    <select
+                      value={selectedShoeId || ""}
+                      onChange={(e) => handleShoeChange(parseInt(e.target.value))}
+                      className="bg-transparent text-xs font-bold text-[#3A2B1C] focus:outline-none cursor-pointer"
+                    >
+                      {shoes.map((shoe) => (
+                        <option key={shoe.id} value={shoe.id}>
+                          {shoe.shoe_material}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           )}

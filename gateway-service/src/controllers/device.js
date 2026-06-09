@@ -95,10 +95,10 @@ const sendDeviceCommand = async (req, res) => {
     const hState = actuators.heater || 'OFF';
     const uvState = actuators.uv_light || 'OFF';
     const fState = actuators.fan || 'OFF';
-    const shoeIdVal = active_shoe_id || null;
+    const shoeIdVal = active_shoe_id === 0 ? null : (active_shoe_id || null);
 
     // Simpan status kontrol baru ke database PostgreSQL
-    if (shoeIdVal) {
+    if (active_shoe_id !== undefined) {
       await db.query(
         `UPDATE devices 
          SET control_mode = $1, heater_state = $2, uv_light_state = $3, fan_state = $4, active_shoe_id = $5 

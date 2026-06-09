@@ -51,7 +51,7 @@ def main():
     if not shoe_row:
         cur.execute(
             "INSERT INTO shoes (user_id, shoe_name, shoe_type, shoe_material) VALUES (%s, %s, %s, %s) RETURNING id;",
-            (user_id, "Nike Mesh Runner", "Running", "Mesh")
+            (user_id, "Sepatu Mesh", "Umum", "Mesh")
         )
         shoe_id = cur.fetchone()[0]
     else:

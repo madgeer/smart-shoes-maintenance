@@ -77,16 +77,18 @@ const initMqttListener = () => {
       const deviceId = device.id;
       const userId = device.user_id;
       const controlMode = device.control_mode || 'auto';
-      const activeShoeId = device.active_shoe_id || shoe_id;
+      const activeShoeId = (device.active_shoe_id !== null && device.active_shoe_id !== undefined) ? device.active_shoe_id : 0;
+      const hasShoe = activeShoeId !== 0;
 
       // 3. Simpan data sensor ke tabel `sensor_logs`
+      const dbShoeId = hasShoe ? activeShoeId : null;
       const insertLogQuery = `
         INSERT INTO sensor_logs (shoe_id, device_id, temperature, humidity, gas_level, duration_usage, fan_usage_duration, uv_usage_duration)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, created_at
       `;
       const newLog = await db.query(insertLogQuery, [
-        activeShoeId,
+        dbShoeId,
         deviceId,
         temperature,
         humidity,
@@ -114,36 +116,34 @@ const initMqttListener = () => {
       });
 
       // 5. Integrasi Paralel Inferensi Model ML Service
+      let drynessPred = { label: -1, kategori: 'Boks Kosong', gas_mq135_normalisasi: 0.0, kelembapan_normalisasi: 0.0 };
+      let dryingPred = { sisa_waktu_menit: 0.0, status: 'Boks Kosong (Sensor tidak aktif)' };
 
-      // A. Model 1: Klasifikasi Tingkat Kekeringan Sepatu (Decision Tree)
-      const drynessPred = await mlService.predictDryness(gas_level, humidity, temperature);
+      if (hasShoe) {
+        drynessPred = await mlService.predictDryness(gas_level, humidity, temperature);
 
-      // B. Estimasi Sisa Waktu Pengeringan (Perhitungan Matematika Heuristik)
-      // B.1 Cari kelembapan awal dalam sesi 12 jam terakhir
-      const oldestLogResult = await db.query(
-        `SELECT humidity FROM sensor_logs 
-         WHERE shoe_id = $1 AND created_at >= NOW() - INTERVAL '12 hours' 
-         ORDER BY created_at ASC LIMIT 1`,
-        [activeShoeId]
-      );
-      const kelembapanAwal = oldestLogResult.rows.length > 0 ? oldestLogResult.rows[0].humidity : humidity;
+        const oldestLogResult = await db.query(
+          `SELECT humidity FROM sensor_logs 
+           WHERE shoe_id = $1 AND created_at >= NOW() - INTERVAL '12 hours' 
+           ORDER BY created_at ASC LIMIT 1`,
+          [activeShoeId]
+        );
+        const kelembapanAwal = oldestLogResult.rows.length > 0 ? oldestLogResult.rows[0].humidity : humidity;
 
-      // B.2 Cari bahan/material sepatu
-      const shoeResult = await db.query('SELECT shoe_material FROM shoes WHERE id = $1', [activeShoeId]);
-      const materialName = shoeResult.rows.length > 0 ? shoeResult.rows[0].shoe_material : 'Kanvas';
+        const shoeResult = await db.query('SELECT shoe_material FROM shoes WHERE id = $1', [activeShoeId]);
+        const materialName = shoeResult.rows.length > 0 ? shoeResult.rows[0].shoe_material : 'Kanvas';
 
-      // B.3 Konversi bahan tekstil ke nilai integer input ML (1: Kanvas, 2: Kulit, 3: Mesh)
-      const materialMap = { 'Kanvas': 1, 'Kulit': 2, 'Mesh': 3 };
-      const jenisBahan = materialMap[materialName] || 1;
+        const materialMap = { 'Kanvas': 1, 'Kulit': 2, 'Mesh': 3 };
+        const jenisBahan = materialMap[materialName] || 1;
 
-      // B.4 Tembak API Estimasi Waktu Pengeringan (Matematika Heuristik)
-      const dryingPred = await mlService.predictDryingTime(
-        kelembapanAwal,
-        humidity,
-        temperature,
-        jenisBahan,
-        gas_level
-      );
+        dryingPred = await mlService.predictDryingTime(
+          kelembapanAwal,
+          humidity,
+          temperature,
+          jenisBahan,
+          gas_level
+        );
+      }
 
       // 6. Simpan hasil prediksi gabungan ke database `predictions`
       const insertPredQuery = `
@@ -178,50 +178,10 @@ const initMqttListener = () => {
         }
       });
 
-      // 8. Logika Peringatan Sepatu Basah & Notifikasi Otomatis
-      if (drynessPred.kategori === 'Basah' || humidity > 75.0) {
-        let alertTitle = 'Peringatan Kelembapan Tinggi!';
-        let alertMsg = `Sepatu terdeteksi sangat lembap (${humidity.toFixed(1)}%). Direkomendasikan sterilisasi & pengeringan otomatis.`;
-        let alertType = 'WARNING';
-
-        if (drynessPred.kategori === 'Basah') {
-          alertTitle = 'Deteksi Sepatu Basah!';
-          alertMsg = `Tingkat kelembapan sepatu terdeteksi sangat tinggi (Basah). Sistem mengaktifkan pengeringan otomatis.`;
-          alertType = 'DANGER';
-        }
-
-        // Simpan Alert Notifikasi ke database PostgreSQL
-        const insertNotifQuery = `
-          INSERT INTO notifications (user_id, title, message, notification_type)
-          VALUES ($1, $2, $3, $4)
-        `;
-        await db.query(insertNotifQuery, [userId, alertTitle, alertMsg, alertType]);
-
-        // Pancarkan Alert realtime via WebSocket ke client agar muncul Toast Notifikasi
-        wsManager.sendAlertToUser(userId, 'notification:alert', {
-          user_id: userId,
-          notification_type: alertType,
-          title: alertTitle,
-          message: alertMsg,
-          timestamp: logTimestamp
-        });
-
-        // Kirim Notifikasi ke Telegram Bot
-        if (drynessPred.kategori === 'Basah') {
-          const tgMessage = `🚨 *DETEKSI KONDISI SEPATU!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Kondisi: *Basah*)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSistem menyalakan Lampu UV Steril dan Blower secara otomatis untuk dekontaminasi dan pengeringan.`;
-          sendTelegramNotification(tgMessage);
-        } else if (humidity > 75.0) {
-          const tgMessage = `⚠️ *PERINGATAN KELEMBAPAN TINGGI!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan: *${humidity.toFixed(1)} %* (Basah Sekali)\n🌡️ Suhu: *${temperature.toFixed(1)} °C*\n\nSepatu terdeteksi basah sekali. Sistem mengaktifkan Heater dan Blower otomatis untuk memulai pengeringan.`;
-          sendTelegramNotification(tgMessage);
-        }
-      }
-
-      // 9. Kirim balik Perintah Aksi Aktuasi Fisik ke ESP32 via MQTT
-      // Sesuai mqtt-specification.md: Gateway mengirim instruksi ke topik 'v1/devices/{device_code}/commands'
+      // 8. Kirim balik Perintah Aksi Aktuasi Fisik ke ESP32 via MQTT
       const commandTopic = `v1/devices/${device_code}/commands`;
 
       if (controlMode === 'manual') {
-        // A. JIKA MODE MANUAL: Kirim ulang perintah manual stabil yang tersimpan di DB
         const commandPayload = {
           command_id: `cmd_${Math.random().toString(16).substring(2, 10)}`,
           device_code: device_code,
@@ -237,41 +197,19 @@ const initMqttListener = () => {
 
         mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
           console.log(`[MQTT-ACTUATOR] Mode MANUAL aktif untuk ${device_code}. Mengunci state:`, commandPayload.actuators);
-          // Siarkan ke WebSocket agar UI stabil pada mode manual
           wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
         });
       } else {
         // B. JIKA MODE AUTO: Lakukan kalkulasi otomatis
-        // - Heater aktif jika kelembapan belum optimal kering (>25%)
-        // - UV aktif jika tingkat kekeringan Basah atau Lembap (mencegah bakteri)
-        // - Kipas aktif jika salah satu heater atau UV menyala
-        const heaterState = humidity > 25.0 ? 'ON' : 'OFF';
-        const uvState = (drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
-        const fanState = (humidity > 25.0 || drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
+        // - Heater, UV, dan Kipas dipaksa OFF jika boks kosong (tidak ada sepatu)
+        let heaterState = 'OFF';
+        let uvState = 'OFF';
+        let fanState = 'OFF';
 
-        // Deteksi transisi proses pengeringan selesai (Heater dari ON berubah menjadi OFF)
-        if (device.heater_state === 'ON' && heaterState === 'OFF') {
-          const finishedTitle = 'Proses Pengeringan Selesai!';
-          const finishedMsg = `Sepatu dengan ID #${activeShoeId} telah kering secara optimal (${humidity.toFixed(1)}%). Pemanas otomatis dinonaktifkan.`;
-
-          // Simpan notifikasi ke database PostgreSQL
-          await db.query(
-            `INSERT INTO notifications (user_id, title, message, notification_type) VALUES ($1, $2, $3, 'INFO')`,
-            [userId, finishedTitle, finishedMsg]
-          );
-
-          // Pancarkan via WebSocket
-          wsManager.sendAlertToUser(userId, 'notification:alert', {
-            user_id: userId,
-            notification_type: 'INFO',
-            title: finishedTitle,
-            message: finishedMsg,
-            timestamp: logTimestamp
-          });
-
-          // Kirim Notifikasi via Telegram Bot
-          const tgMsg = `✅ *PROSES PENGERINGAN SELESAI!*\n📦 Shoe ID: *#${activeShoeId}*\n🔌 Device: *${device_code}*\n💦 Kelembapan Akhir: *${humidity.toFixed(1)} %* (Optimal & Kering)\n🌡️ Suhu Akhir: *${temperature.toFixed(1)} °C*\n\nSepatu telah kering sempurna dan siap digunakan kembali. Pemanas otomatis dimatikan oleh sistem.`;
-          sendTelegramNotification(tgMsg);
+        if (hasShoe) {
+          heaterState = humidity > 25.0 ? 'ON' : 'OFF';
+          uvState = (drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
+          fanState = (humidity > 25.0 || drynessPred.kategori === 'Basah' || drynessPred.kategori === 'Lembap') ? 'ON' : 'OFF';
         }
 
         // Simpan status aktuator otomatis yang baru terhitung ke database
@@ -294,8 +232,7 @@ const initMqttListener = () => {
         };
 
         mqttClient.publish(commandTopic, JSON.stringify(commandPayload), { qos: 1 }, () => {
-          console.log(`[MQTT-ACTUATOR] Mode AUTO aktif untuk ${device_code}. Mengirim hasil ML:`, commandPayload.actuators);
-          // Siarkan ke WebSocket agar UI ikut ter-update
+          console.log(`[MQTT-ACTUATOR] Mode AUTO aktif untuk ${device_code}. Mengirim hasil:`, commandPayload.actuators);
           wsManager.broadcastToDevice(device_code, 'device:command', commandPayload);
         });
       }
