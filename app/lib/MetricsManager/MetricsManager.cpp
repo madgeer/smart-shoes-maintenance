@@ -1,11 +1,3 @@
-/**
- * =========================================================================
- * SMART SHOES MAINTENANCE - METRICS MANAGER IMPLEMENTATION
- * =========================================================================
- * File: MetricsManager.cpp
- * =========================================================================
- */
-
 #include "MetricsManager.h"
 #include <Config.h>
 #include <Preferences.h>
@@ -19,10 +11,10 @@ static float durationUV = 0.0f;
 static unsigned long lastSyncTime = 0;
 
 void metrics_setup() {
-    // Membuka ruang penyimpanan namespace "shoe_metrics" (Read/Write)
+    // membuka ruang penyimpanan namespace "shoe_metrics" (Read/Write)
     prefs.begin("shoe_metrics", false);
     
-    // Muat data dari NVS Flash, default ke 0.0f jika belum ada
+    //muat data dari NVS Flash, default ke 0.0f jika belum ada
     durationTotal = prefs.getFloat("dur_total", 0.0f);
     durationFan   = prefs.getFloat("dur_fan", 0.0f);
     durationUV    = prefs.getFloat("dur_uv", 0.0f);
@@ -36,10 +28,10 @@ void metrics_setup() {
 }
 
 void metrics_update(float elapsedSeconds, bool heaterOn, bool fanOn, bool uvOn) {
-    // Konversi detik ke jam (1 detik = 1 / 3600 jam)
+    // konversi detik ke jam (1 detik = 1 / 3600 jam)
     float hours = elapsedSeconds / 3600.0f;
     
-    // Akumulasikan ke RAM
+    // akumlasi ke RAM
     durationTotal += hours;
     if (fanOn) {
         durationFan += hours;

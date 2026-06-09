@@ -1,12 +1,3 @@
-/**
- * =========================================================================
- * SMART SHOES MAINTENANCE - METRICS MANAGER
- * =========================================================================
- * File: MetricsManager.h
- * Deskripsi: Deklarasi modul pencatat metrik durasi pemakaian (NVS Flash).
- * =========================================================================
- */
-
 #ifndef METRICS_MANAGER_H
 #define METRICS_MANAGER_H
 

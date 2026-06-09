@@ -1,11 +1,3 @@
-/**
- * =========================================================================
- * SMART SHOES MAINTENANCE - MQTT MANAGER IMPLEMENTATION
- * =========================================================================
- * File: MQTTManager.cpp
- * =========================================================================
- */
-
 #include "MQTTManager.h"
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -14,16 +6,16 @@
 static PubSubClient client;
 static unsigned long lastReconnectAttempt = 0;
 
-// Link ke callback eksternal di main.cpp
+//deklarasi fungsi handler utama untuk menerima perintah dari MQTT
 extern void handle_gateway_command(const char* commandId, const char* heaterState, 
                                     const char* uvState, const char* fanState, 
                                     const char* mode);
 
-// Fungsi callback internal saat broker menerima pesan
+//fungsi callback internal saat broker menerima pesan
 static void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     Serial.printf("[MQTT] Menerima pesan di topik: %s\n", topic);
     
-    // Parsing JSON Payload menggunakan ArduinoJson
+    //pasring JSON Payload menggunakan ArduinoJson
     StaticJsonDocument<256> doc;
     DeserializationError error = deserializeJson(doc, payload, length);
     
@@ -39,7 +31,7 @@ static void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     const char* fanState = doc["actuators"]["fan"] | "OFF";
     const char* mode = doc["mode"] | "auto";
     
-    // Panggil handler utama di main.cpp
+    // panggil handler utama di main.cpp
     handle_gateway_command(commandId, heaterState, uvState, fanState, mode);
 }
 
@@ -52,7 +44,7 @@ void mqtt_setup() {
 static bool mqtt_reconnect() {
     Serial.println("[MQTT] Menghubungkan ke Broker Mosquitto...");
     
-    // Generate Client ID acak
+    // generate Client ID acak
     String clientId = "ESP32Client-" + String(random(0xffff), HEX);
     
     // Topik LWT Status
@@ -102,7 +94,7 @@ void mqtt_loop(WiFiClient& wifiClient) {
     
     if (!client.connected()) {
         unsigned long currentMillis = millis();
-        // Upayakan penyambungan ulang setiap 5 detik secara non-blocking
+        // mengupayakan penyambungan ulang setiap 5 detik secara non-blocking
         if (currentMillis - lastReconnectAttempt >= 5000) {
             lastReconnectAttempt = currentMillis;
             if (mqtt_reconnect()) {

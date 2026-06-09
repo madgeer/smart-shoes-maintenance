@@ -39,9 +39,8 @@
 #define RELAY_FAN_USE_HIZ false
 
 #define RELAY_HEATER_PIN 14    // relay 30A Hairdryer (heater)
-#define RELAY_UV_PIN 27        // relay Ch 4: uv
-#define RELAY_FAN_POWER_PIN 26   // relay Ch 3: fan
-
+#define RELAY_UV_PIN 27        // relay Ch 3: fan 
+#define RELAY_FAN_POWER_PIN 26 // relay Ch 4: uv
 
 // pengaman Kecepatan Blower simulasi 
 #define MIN_FAN_SPEED 120

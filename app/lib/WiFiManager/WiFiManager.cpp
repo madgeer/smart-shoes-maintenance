@@ -1,23 +1,16 @@
-/**
- * =========================================================================
- * SMART SHOES MAINTENANCE - WIFI MANAGER IMPLEMENTATION
- * =========================================================================
- * File: WiFiManager.cpp
- * =========================================================================
- */
-
 #include "WiFiManager.h"
 #include <WiFi.h>
 #include <Config.h>
 
 static unsigned long lastWifiCheck = 0;
 
+// Fungsi untuk menginisialisasi koneksi WiFi
 void wifi_setup() {
     Serial.println("\n[WIFI] Memulai koneksi WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     
-    // Tunggu koneksi saat startup (maksimal 10 detik)
+    // tunggu koneksi saat startup (maksimal 10 detik)
     int retries = 0;
     while (WiFi.status() != WL_CONNECTED && retries < 20) {
         delay(500);
@@ -34,7 +27,7 @@ void wifi_setup() {
 
 void wifi_loop() {
     unsigned long currentMillis = millis();
-    // Periksa status WiFi secara berkala setiap 10 detik (non-blocking)
+    // periksa status WiFi secara berkala setiap 10 detik (non-blocking)
     if (currentMillis - lastWifiCheck >= 10000) {
         lastWifiCheck = currentMillis;
         
@@ -46,9 +39,11 @@ void wifi_loop() {
     }
 }
 
+// Fungsi untuk memeriksa apakah WiFi terhubung
 bool wifi_is_connected() {
     return (WiFi.status() == WL_CONNECTED);
 }
+
 
 String wifi_get_ip() {
     if (wifi_is_connected()) {
