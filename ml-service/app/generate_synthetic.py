@@ -57,9 +57,8 @@ def main():
     else:
         shoe_id = shoe_row[0]
 
-    # 2. Bersihkan sensor_logs lama agar datanya bersih
-    print("[SYNTHETIC-GEN] Mengosongkan tabel sensor_logs lama...")
-    cur.execute("TRUNCATE TABLE sensor_logs CASCADE;")
+    print("[SYNTHETIC-GEN] Mengosongkan tabel sensor_logs lama dan me-reset ID ke 1...")
+    cur.execute("TRUNCATE TABLE sensor_logs RESTART IDENTITY CASCADE;")
     conn.commit()
 
     # 3. Generate data simulasi

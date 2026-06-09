@@ -32,11 +32,11 @@ def train_decision_tree() -> None:
         
     print(f"    [INFO] Memproses {len(df)} baris data untuk Decision Tree...")
     
-    # Pelabelan berdasarkan Aturan Batas Kelembapan (Rule-based Labeling)
-    # Kelas 0: Kering (< 40.0% RH), Kelas 1: Lembap (40.0% - 70.0% RH), Kelas 2: Basah (> 70.0% RH)
+    # Pelabelan berdasarkan Kombinasi Suhu & Kelembapan (Thermodynamic Rule-based Labeling)
+    # Kelas 0: Kering, Kelas 1: Lembap, Kelas 2: Basah
     conds = [
-        df['humidity'] <= 40.0,
-        df['humidity'] > 70.0
+        (df['humidity'] <= 35.0) | ((df['humidity'] <= 45.0) & (df['temperature'] >= 40.0)),
+        (df['humidity'] > 70.0) | ((df['humidity'] > 60.0) & (df['temperature'] < 30.0))
     ]
     choices = [0, 2]
     df['drying_status'] = np.select(conds, choices, default=1)

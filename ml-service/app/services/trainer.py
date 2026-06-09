@@ -52,11 +52,11 @@ def train_models_from_db(model_dir: str = "trained_model") -> dict:
                 'kelembapan_sekarang': 'humidity'
             })
             
-            # Pelabelan berdasarkan Aturan Batas Kelembapan (Rule-based Labeling)
-            # Kelas 0: Kering (< 40.0% RH), Kelas 1: Lembap (40.0% - 70.0% RH), Kelas 2: Basah (> 70.0% RH)
+            # Pelabelan berdasarkan Kombinasi Suhu & Kelembapan (Thermodynamic Rule-based Labeling)
+            # Kelas 0: Kering, Kelas 1: Lembap, Kelas 2: Basah
             conds = [
-                df_smell['humidity'] <= 40.0,
-                df_smell['humidity'] > 70.0
+                (df_smell['humidity'] <= 35.0) | ((df_smell['humidity'] <= 45.0) & (df_smell['temperature'] >= 40.0)),
+                (df_smell['humidity'] > 70.0) | ((df_smell['humidity'] > 60.0) & (df_smell['temperature'] < 30.0))
             ]
             choices = [0, 2]
             df_smell['drying_status'] = np.select(conds, choices, default=1)

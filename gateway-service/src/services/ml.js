@@ -26,8 +26,8 @@ const predictSmell = async (gasMq135, kelembapanSekarang, suhu) => {
     // Fallback default jika ML Service mati agar sistem tetap jalan
     return {
       klaster_asli: -1,
-      label: 1, // Default ke 'Normal'
-      kategori: 'Normal',
+      label: 1, // Default ke 'Lembap'
+      kategori: 'Lembap',
       gas_mq135_normalisasi: 0.5,
       kelembapan_normalisasi: 0.5,
       is_fallback: true
