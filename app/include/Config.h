@@ -38,12 +38,19 @@
 
 // 5. Konfigurasi Aktuator (Relay 4-Channel & PWM Fan)
 // -------------------------------------------------------------------------
-// Relay: Konfigurasi Active-Low (Relay aktif saat pin diberi nilai LOW)
-#define RELAY_ACTIVE_STATE   LOW              
+// Relay: Konfigurasi Active State masing-masing pin
+#define RELAY_HEATER_ACTIVE_STATE  LOW              // Relay 2: 30A/1-Channel Heater: Active-Low (Menggunakan Hi-Z Bypass)
+#define RELAY_UV_ACTIVE_STATE      HIGH             // Relay 1: 4-Channel Ch 2 UV: Active-High (Standard Digital Output)
+#define RELAY_FAN_ACTIVE_STATE     HIGH             // Relay 1: 4-Channel Ch 4 Fan: Active-High (Standard Digital Output)
+
+// Konfigurasi Penggunaan Hi-Z Bypass (hanya untuk modul relay tertentu yang bocor arus)
+#define RELAY_HEATER_USE_HIZ       true
+#define RELAY_UV_USE_HIZ           false
+#define RELAY_FAN_USE_HIZ          false
 
 #define RELAY_HEATER_PIN     14               // Relay Ch 1: Plate Heater (Sesuai wiring.md)
-#define RELAY_UV_PIN         26               // Relay Ch 2: Lampu UV Sterilisator (Sesuai wiring.md)
-#define RELAY_FAN_POWER_PIN  27               // Relay Ch 4: Power Line VCC Kipas PWM (Sesuai wiring.md)
+#define RELAY_UV_PIN         27               // Relay Ch 2: Lampu UV Sterilisator (Sesuai wiring.md) - Disesuaikan dengan fisik
+#define RELAY_FAN_POWER_PIN  26               // Relay Ch 4: Power Line VCC Kipas PWM (Sesuai wiring.md) - Disesuaikan dengan fisik
 
 // Pengaman Kecepatan Blower simulasi (untuk interlock saja)
 #define MIN_FAN_SPEED        120
