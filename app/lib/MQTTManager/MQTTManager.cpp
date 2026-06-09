@@ -46,6 +46,7 @@ static void mqtt_callback(char* topic, byte* payload, unsigned int length) {
 void mqtt_setup() {
     client.setServer(MQTT_BROKER, MQTT_PORT);
     client.setCallback(mqtt_callback);
+    client.setBufferSize(512); // Meningkatkan ukuran buffer untuk payload JSON yang lebih besar
 }
 
 static bool mqtt_reconnect() {
@@ -114,7 +115,8 @@ void mqtt_loop(WiFiClient& wifiClient) {
 }
 
 void mqtt_publish_telemetry(float temp, float hum, float gas, 
-                            float durTotal, float durFan, float durUV) {
+                            float durTotal, float durFan, float durUV,
+                            bool shoePresent) {
     if (!client.connected()) return;
     
     // Bungkus data telemetri sesuai standard mqtt-specification.md
@@ -126,6 +128,7 @@ void mqtt_publish_telemetry(float temp, float hum, float gas,
     telemetryObj["temperature"] = round(temp * 100.0) / 100.0;
     telemetryObj["humidity"] = round(hum * 100.0) / 100.0;
     telemetryObj["gas_level"] = round(gas * 100.0) / 100.0;
+    telemetryObj["shoe_present"] = shoePresent;
     
     JsonObject metricsObj = doc.createNestedObject("metrics");
     metricsObj["duration_usage"] = round(durTotal * 100.0) / 100.0;

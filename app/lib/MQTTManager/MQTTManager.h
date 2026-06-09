@@ -21,7 +21,8 @@ void mqtt_loop(WiFiClient& wifiClient);
 
 // Publikasi data telemetri & metrik ke broker MQTT
 void mqtt_publish_telemetry(float temp, float hum, float gas, 
-                            float durTotal, float durFan, float durUV);
+                            float durTotal, float durFan, float durUV,
+                            bool shoePresent);
 
 // Cek apakah terhubung ke broker MQTT
 bool mqtt_is_connected();

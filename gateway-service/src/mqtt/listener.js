@@ -57,14 +57,14 @@ const initMqttListener = () => {
         return;
       }
 
-      const { temperature, humidity, gas_level } = telemetry;
+      const { temperature, humidity, gas_level, shoe_present } = telemetry;
       const duration_usage = metrics ? metrics.duration_usage || 0.0 : 0.0;
       const fan_usage_duration = metrics ? metrics.fan_usage_duration || 0.0 : 0.0;
       const uv_usage_duration = metrics ? metrics.uv_usage_duration || 0.0 : 0.0;
 
       // 2. Cari data perangkat dan status mode kontrol di database
       const deviceResult = await db.query(
-        'SELECT id, user_id, device_name, control_mode, heater_state, uv_light_state, fan_state, active_shoe_id FROM devices WHERE device_code = $1',
+        'SELECT id, user_id, device_name, control_mode, heater_state, uv_light_state, fan_state, active_shoe_id, status FROM devices WHERE device_code = $1',
         [device_code]
       );
 
@@ -77,8 +77,39 @@ const initMqttListener = () => {
       const deviceId = device.id;
       const userId = device.user_id;
       const controlMode = device.control_mode || 'auto';
-      const activeShoeId = (device.active_shoe_id !== null && device.active_shoe_id !== undefined) ? device.active_shoe_id : 0;
+
+      // Auto-aktivasi status online perangkat jika sebelumnya tercatat inactive
+      if (device.status !== 'active') {
+        await db.query('UPDATE devices SET status = $1 WHERE id = $2', ['active', deviceId]);
+        wsManager.broadcastToDevice(device_code, 'device:status', {
+          device_code,
+          status: 'online'
+        });
+        console.log(`[MQTT-LISTENER] Auto-aktivasi status online perangkat ${device_code} dari telemetri.`);
+      }
+
+      // Evaluasi kehadiran sepatu dari ultrasonik fisik jika tersedia
+      const physicalShoePresent = (shoe_present !== undefined) ? shoe_present : ((device.active_shoe_id !== null && device.active_shoe_id !== 0) ? true : false);
+
+      let activeShoeId = 0;
+      if (physicalShoePresent) {
+        activeShoeId = (device.active_shoe_id !== null && device.active_shoe_id !== 0) ? device.active_shoe_id : 1;
+      } else {
+        activeShoeId = 0;
+      }
       const hasShoe = activeShoeId !== 0;
+
+      // Sinkronisasi otomatis ke database jika ada perbedaan status fisik vs database
+      if (shoe_present !== undefined) {
+        const dbShoeIdVal = hasShoe ? activeShoeId : null;
+        if (device.active_shoe_id !== dbShoeIdVal) {
+          await db.query(
+            'UPDATE devices SET active_shoe_id = $1 WHERE id = $2',
+            [dbShoeIdVal, deviceId]
+          );
+          console.log(`[MQTT-LISTENER] Sinkronisasi otomatis database active_shoe_id ke: ${dbShoeIdVal}`);
+        }
+      }
 
       // 3. Simpan data sensor ke tabel `sensor_logs`
       const dbShoeId = hasShoe ? activeShoeId : null;

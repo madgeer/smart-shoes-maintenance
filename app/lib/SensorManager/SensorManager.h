@@ -24,4 +24,10 @@ float sensor_read_humidity();
 // Membaca nilai kadar gas (ppm) dari sensor MQ-135
 float sensor_read_gas_level();
 
+// Membaca jarak (cm) menggunakan sensor ultrasonik
+float sensor_read_distance();
+
+// Mengecek apakah terdapat sepatu di dalam boks (jarak < DISTANCE_THRESHOLD)
+bool sensor_is_shoe_present();
+
 #endif // SENSOR_MANAGER_H

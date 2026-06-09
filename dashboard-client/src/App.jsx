@@ -365,7 +365,7 @@ export default function SmartShoeDryerDashboard() {
           if (payload.mode) {
             setControlMode(payload.mode);
           }
-          if (payload.active_shoe_id && payload.active_shoe_id !== selectedShoeIdRef.current) {
+          if (payload.active_shoe_id !== undefined && payload.active_shoe_id !== null && payload.active_shoe_id !== selectedShoeIdRef.current) {
             setSelectedShoeId(payload.active_shoe_id);
           }
         });
@@ -373,7 +373,7 @@ export default function SmartShoeDryerDashboard() {
         socket.on("sensor:update", (payload) => {
           console.log("SENSOR UPDATE:", payload);
           // Filter sensor update agar hanya memproses sepatu yang sedang aktif
-          if (payload.shoe_id && payload.shoe_id !== selectedShoeIdRef.current) {
+          if (payload.shoe_id !== undefined && payload.shoe_id !== null && payload.shoe_id !== selectedShoeIdRef.current) {
             console.log("Sensor update diabaikan karena shoe_id berbeda:", payload.shoe_id, selectedShoeIdRef.current);
             return;
           }
@@ -566,24 +566,24 @@ export default function SmartShoeDryerDashboard() {
               </div>
               
               <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                {/* Konfirmasi Kehadiran Sepatu */}
-                <div className="flex bg-[#F5F1EA] p-1 rounded-2xl border border-[#ececec]">
+                {/* Konfirmasi Kehadiran Sepatu (Read-only status dari Sensor Ultrasonik) */}
+                <div className="flex bg-[#F5F1EA] p-1 rounded-2xl border border-[#ececec] pointer-events-none select-none">
                   <button
-                    onClick={() => handleShoeChange(shoes[0]?.id || 1)}
+                    disabled={true}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                       selectedShoeId !== 0 
                         ? "bg-[#C97B36] text-white shadow-sm" 
-                        : "text-gray-500 hover:text-[#3A2B1C]"
+                        : "text-gray-500"
                     }`}
                   >
                     Ada Sepatu
                   </button>
                   <button
-                    onClick={() => handleShoeChange(0)}
+                    disabled={true}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                       selectedShoeId === 0 
                         ? "bg-[#3A2B1C] text-white shadow-sm" 
-                        : "text-gray-500 hover:text-[#3A2B1C]"
+                        : "text-gray-500"
                     }`}
                   >
                     Boks Kosong

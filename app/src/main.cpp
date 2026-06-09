@@ -22,6 +22,7 @@ WiFiClient wifiClient;
 unsigned long lastLoopMillis = 0;
 unsigned long lastTelemetryMillis = 0;
 unsigned long lastLocalMonitorMillis = 0;
+unsigned long lastUltrasonicMillis = 0;
 
 // =========================================================================
 // FUNGSI CALLBACK KONTROL AKTUATOR (DI-LINK SECARA ELEGANT VIA EXTERN)
@@ -111,23 +112,50 @@ void loop() {
         );
     }
 
-    // C. Mengirimkan Telemetri Sensor & Metrik ke Cloud setiap 5 detik
+    // C. Mengukur Jarak & Mengirimkan Telemetri Sensor / Metrik
+    // 1. Baca ultrasonik setiap 1 detik secara non-blocking
+    static bool lastShoePresent = false;
+    static bool firstRead = true;
+    
+    if (currentMillis - lastUltrasonicMillis >= 1000) {
+        lastUltrasonicMillis = currentMillis;
+        bool isPresent = sensor_is_shoe_present();
+        
+        // Kirim telemetri instan jika status kehadiran berubah (Event-driven)
+        if (firstRead || isPresent != lastShoePresent) {
+            firstRead = false;
+            lastShoePresent = isPresent;
+            
+            float temp = sensor_read_temperature();
+            float hum  = sensor_read_humidity();
+            float gas  = sensor_read_gas_level();
+            float durTotal = metrics_get_duration_usage();
+            float durFan   = metrics_get_fan_usage_duration();
+            float durUV    = metrics_get_uv_usage_duration();
+            
+            if (wifi_is_connected() && mqtt_is_connected()) {
+                mqtt_publish_telemetry(temp, hum, gas, durTotal, durFan, durUV, isPresent);
+                lastTelemetryMillis = currentMillis; // reset timer telemetri reguler
+                Serial.println("[MAIN] Mengirim telemetri instan akibat perubahan status kehadiran sepatu.");
+            }
+        }
+    }
+
+    // 2. Kirim data sensor reguler ke Cloud secara berkala setiap 5 detik
     if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL_MS) {
         lastTelemetryMillis = currentMillis;
 
-        // 1. Ambil data sensor terkini
         float temp = sensor_read_temperature();
         float hum  = sensor_read_humidity();
         float gas  = sensor_read_gas_level();
+        bool isPresent = lastShoePresent;
 
-        // 2. Ambil data akumulasi durasi dari NVS
         float durTotal = metrics_get_duration_usage();
         float durFan   = metrics_get_fan_usage_duration();
         float durUV    = metrics_get_uv_usage_duration();
 
-        // 3. Kirim ke Broker MQTT jika jaringan aktif
         if (wifi_is_connected() && mqtt_is_connected()) {
-            mqtt_publish_telemetry(temp, hum, gas, durTotal, durFan, durUV);
+            mqtt_publish_telemetry(temp, hum, gas, durTotal, durFan, durUV, isPresent);
         } else {
             Serial.println("[MAIN] Pengiriman Telemetri tertunda: Koneksi terputus.");
         }
