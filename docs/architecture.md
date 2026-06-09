@@ -215,71 +215,66 @@ erDiagram
 
 Machine Learning pada sistem Smart Shoe IoT digunakan untuk:
 
-1. Mengklasifikasikan tingkat bau sepatu
-2. Memprediksi waktu maintenance alat
+1. Mengklasifikasikan tingkat kekeringan sepatu (Kering, Lembap, Basah) menggunakan **Decision Tree Classifier**.
+2. Memprediksi sisa waktu pengeringan sepatu secara dinamis menggunakan **Matematika Heuristik** berbasis suhu dan jenis bahan sepatu.
 
 Sistem menerima data sensor dari perangkat IoT kemudian dikirim oleh Gateway Service (Node.js) ke ML Service (FastAPI) menggunakan HTTP REST API secara synchronous untuk diproses oleh model machine learning guna menghasilkan prediksi secara realtime.
 
-### 1. Klasifikasi Bau Menggunakan K-Means Clustering
+### 1. Klasifikasi Kekeringan Menggunakan Decision Tree Classifier
 
 #### Tujuan
 
-Model K-Means digunakan untuk menentukan kondisi tingkat bau sepatu berdasarkan data sensor.
+Model Decision Tree Classifier (3-Node) digunakan untuk menentukan tingkat kekeringan sepatu secara objektif ke dalam 3 level target tropis Indonesia (Kering, Lembap, Basah) berbasis fitur tunggal kelembapan (`humidity`).
 
 #### Input Feature
 
 Data yang digunakan:
 
-- Gas Level (MQ-135)
 - Humidity (DHT22)
 
 #### Output
 
 Model menghasilkan kategori/label:
 
-- Wangi (Cluster 0)
-- Normal (Cluster 1)
-- Bau (Cluster 2)
+- Kering (Label 0) -> kelembapan $\le 50\%$
+- Lembap (Label 1) -> kelembapan $50\% - 70\%$
+- Basah (Label 2) -> kelembapan $> 70\%$
 
 #### Cara Kerja
 
-K-Means bekerja dengan mengelompokkan data sensor gas MQ-135 dan kelembapan saat ini secara objektif ke dalam 3 klaster optimal yang masing-masing merepresentasikan tingkat kesegaran sepatu (Wangi, Normal, Bau).
+Decision Tree Classifier bekerja dengan mengevaluasi kondisi kelembapan saat ini menggunakan aturan percabangan terstruktur untuk memetakan kelembapan ke kelas kekeringan yang sesuai secara non-linear.
 
-Model memetakan data baru ke klaster terdekat berdasarkan nilai centroid yang telah dipelajari selama proses training.
-
-Contoh:
-
-```text id="h6p2nr"
-Humidity: 82
-Gas Level: 510
-Temperature: 31
-```
-
-misal hasil :
-```
-BAU_PARAH
-```
-
-### 2. Prediksi Maintenance Menggunakan Linear Regression
+### 2. Estimasi Waktu Pengeringan Menggunakan Matematika Heuristik
 
 #### Tujuan
-Model Linear Regression digunakan untuk memperkirakan kapan alat membutuhkan maintenance.
+
+Memprediksi sisa waktu pengeringan sepatu dalam menit secara dinamis berdasarkan kondisi fisik heater dan material sepatu.
 
 #### Input Feature
+
 Data yang digunakan:
-- Average Humidity
-- Average Gas Level
-- Total Usage
-- Fan Usage Duration
-- UV Usage Duration
+- Kelembapan Awal (%)
+- Kelembapan Sekarang (%)
+- Suhu Box/Heater (°C)
+- Jenis Bahan Sepatu (Mesh, Kanvas, Kulit)
 
 #### Output
 ```
-Estimasi waktu maintenance: 1 jam lagi maintenance
+Estimasi sisa waktu pengeringan: 35.5 menit lagi
 ```
 
 #### Cara Kerja
-Linear Regression mencari hubungan linear antara data sensor dan waktu maintenance.
+
+Estimasi sisa waktu dihitung secara dinamis menggunakan persamaan berikut:
+1. Target pengeringan optimal diatur pada kelembapan $25.0\%$. Jika kelembapan saat ini sudah di bawah target, sisa waktu diatur ke $0$.
+2. Laju pengeringan dasar dihitung berdasarkan suhu heater:
+   $$\text{laju\_dasar} = \max(0.1, 0.5 + 0.02 \times (\text{suhu} - 25.0))$$
+3. Nilai ini kemudian disesuaikan berdasarkan material pengali bahan:
+   - Mesh: $1.5\times$ (struktur berpori mempercepat penguapan)
+   - Kanvas: $1.0\times$ (laju standard)
+   - Kulit: $0.7\times$ (material tebal memperlambat penguapan)
+4. Sisa waktu pengeringan diperoleh dari pembagian selisih kelembapan ke target dengan laju aktual:
+   $$\text{sisa\_waktu} = \frac{\text{kelembapan\_sekarang} - 25.0}{\text{laju\_dasar} \times \text{pengali\_bahan}}$$
 
 ## Tools dan Library
 ### Frontend

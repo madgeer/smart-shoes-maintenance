@@ -36,19 +36,19 @@ sequenceDiagram
     %% ML Processing
     rect rgb(245, 245, 245)
         Note over Gateway, ML: Proses Inferensi Machine Learning (Paralel)
-        Gateway->>ML: POST /predict/smell (gas_level, humidity)
-        ML-->>Gateway: Return hasil prediksi bau (kategori: Bau)
+        Gateway->>ML: POST /predict/dryness (gas_mq135, kelembapan_sekarang, suhu)
+        ML-->>Gateway: Return hasil prediksi kekeringan (kategori: Basah/Lembap/Kering)
         
         Gateway->>DB: Ambil kelembapan awal & jenis bahan sepatu
         DB-->>Gateway: Return kelembapanAwal, jenisBahan
         
-        Gateway->>ML: POST /predict/drying (kelembapanAwal, humidity, temperature, jenisBahan, gas_level)
+        Gateway->>ML: POST /predict/maintenance (kelembapan_awal, kelembapan_sekarang, suhu, jenis_bahan, sensor_bau)
         ML-->>Gateway: Return sisa waktu pengeringan & status
         
         Gateway->>DB: INSERT INTO predictions (sensor_log_id, prediction_label, estimated_drying_time, drying_status)
     end
 
-    Gateway-->>Client: Emit prediction:update (Hasil K-Means & Regression)
+    Gateway-->>Client: Emit prediction:update (Hasil Decision Tree & Heuristik)
 
     %% Notifikasi & Telegram Bot
     rect rgb(255, 240, 245)

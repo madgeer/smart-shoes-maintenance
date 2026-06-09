@@ -1,6 +1,6 @@
 # Smart Shoes Maintenance ML 
 
-Proyek Machine Learning dan API untuk sistem perawatan sepatu pintar (*Smart Shoes*). Sistem ini mengintegrasikan sensor fisik untuk memprediksi **sisa waktu pengeringan sepatu** (Regresi Linier) dan **tingkat bau sepatu** (K-Means Clustering).
+Proyek Machine Learning dan API untuk sistem perawatan sepatu sepatu pintar (*Smart Shoes*). Sistem ini mengintegrasikan sensor fisik untuk memprediksi **sisa waktu pengeringan sepatu** (Matematika Heuristik) dan **tingkat kekeringan sepatu** (Decision Tree Classifier).
 
 ---
 
@@ -11,7 +11,7 @@ smart-shoes-maintenance-ml/
 │   ├── models/schemas.py      # Pydantic Schemas untuk request/response API
 │   ├── services/predictor.py  # Layanan inferensi loading model & prediksi
 │   └── main.py                # Aplikasi Web FastAPI & CORS
-├── dataset/                   # Dataset sensor (CSV) & script pembuat data sintetis
+├── dataset/                   # Dataset sensor (CSV)
 ├── tests/                     # Unit testing API dengan Pytest
 ├── trained_model/             # File model ML (.joblib) hasil pelatihan
 ├── training/                  # Kode preprocessing data & skrip pelatihan model
@@ -58,5 +58,5 @@ Nyalakan server lokal untuk mulai menerima data sensor:
 ---
 
 ## Fitur Machine Learning
-1.  **Estimator Waktu Pengeringan (Regression):** Menggunakan *Multiple Linear Regression* untuk menghitung estimasi sisa waktu pengeringan sepatu dalam satuan menit berdasarkan kelembapan awal, kelembapan sekarang, dan suhu udara.
-2.  **Detektor Bau (Unsupervised K-Means):** Mengelompokkan aroma sepatu secara objektif ke dalam 3 level (**Wangi**, **Normal**, **Bau**) berdasarkan sensor gas MQ-135 dan kelembapan saat ini menggunakan pengurutan jarak centroid Euclidean.
+1.  **Estimator Waktu Pengeringan (Matematika Heuristik):** Menghitung estimasi sisa waktu pengeringan sepatu dalam menit secara dinamis berdasarkan jenis bahan sepatu (Mesh, Kanvas, Kulit) dan laju penguapan dinamis berbasis suhu box.
+2.  **Detektor Kekeringan (Decision Tree Classifier):** Mengelompokkan tingkat kekeringan sepatu secara objektif ke dalam 3 level target tropis Indonesia (**Kering**, **Lembap**, **Basah**) berdasarkan sensor kelembapan saat ini menggunakan penggolongan Decision Tree Classifier 3-Node.

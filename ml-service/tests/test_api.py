@@ -47,26 +47,28 @@ def test_predict_maintenance_validation_error(client) -> None:
     json_data = response.json()
     assert "tidak boleh lebih besar" in json_data["detail"]
 
-def test_predict_smell_wangi(client) -> None:
-    """Menguji sensor gas & kelembapan rendah (harus diklasifikasi sebagai Wangi)."""
+def test_predict_dryness_kering(client) -> None:
+    """Menguji kelembapan rendah (harus diklasifikasi sebagai Kering)."""
     payload = {
         "gas_mq135": 150.0,
-        "kelembapan_sekarang": 25.0
+        "kelembapan_sekarang": 25.0,
+        "suhu": 25.0
     }
-    response = client.post("/predict/smell", json=payload)
+    response = client.post("/predict/dryness", json=payload)
     assert response.status_code == 200
     json_data = response.json()
-    assert json_data["kategori"] == "Wangi"
+    assert json_data["kategori"] == "Kering"
     assert json_data["label"] == 0
 
-def test_predict_smell_bau(client) -> None:
-    """Menguji sensor gas & kelembapan tinggi pekat (harus diklasifikasi sebagai Bau)."""
+def test_predict_dryness_basah(client) -> None:
+    """Menguji kelembapan tinggi (harus diklasifikasi sebagai Basah)."""
     payload = {
         "gas_mq135": 850.0,
-        "kelembapan_sekarang": 85.0
+        "kelembapan_sekarang": 85.0,
+        "suhu": 25.0
     }
-    response = client.post("/predict/smell", json=payload)
+    response = client.post("/predict/dryness", json=payload)
     assert response.status_code == 200
     json_data = response.json()
-    assert json_data["kategori"] == "Bau"
+    assert json_data["kategori"] == "Basah"
     assert json_data["label"] == 2

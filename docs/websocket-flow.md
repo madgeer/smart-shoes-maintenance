@@ -133,18 +133,18 @@ sequenceDiagram
     Broker->>Gateway: Forward MQTT Message (Payload Sensor & Metrics)
     
     rect rgb(240, 240, 240)
-        Note over Gateway, ML: Proses paralel penyimpanan & inferensi ML
-        Gateway->>DB: Save sensor log with metrics to "sensor_logs"
-        Gateway->>ML: POST /predict/smell (Send sensor data)
-        ML-->>Gateway: Return prediction { kategori: "Bau", label: 2, ... }
-        Gateway->>ML: POST /predict/maintenance (Send drying initial & current data)
-        ML-->>Gateway: Return drying prediction { sisa_waktu_menit: 25.42, status: "..." }
-        Gateway->>DB: Save ML results to "predictions"
-    end
+         Note over Gateway, ML: Proses paralel penyimpanan & inferensi ML
+         Gateway->>DB: Save sensor log with metrics to "sensor_logs"
+         Gateway->>ML: POST /predict/dryness (Send sensor data)
+         ML-->>Gateway: Return prediction { kategori: "Basah", label: 2, ... }
+         Gateway->>ML: POST /predict/maintenance (Send drying initial & current data)
+         ML-->>Gateway: Return drying prediction { sisa_waktu_menit: 35.0, status: "..." }
+         Gateway->>DB: Save ML results to "predictions"
+     end
 
-    Note over Gateway, Client: Distribusi data realtime ke klien via WebSocket
-    Gateway-->>Client: Emit "sensor:update" (Raw sensor values)
-    Gateway-->>Client: Emit "prediction:update" (Combined Smell & Drying prediction results)
+     Note over Gateway, Client: Distribusi data realtime ke klien via WebSocket
+     Gateway-->>Client: Emit "sensor:update" (Raw sensor values)
+     Gateway-->>Client: Emit "prediction:update" (Combined Dryness & Drying prediction results)
 
     opt Jika kategori prediksi adalah 'Bau' (atau kelembapan tinggi)
         Gateway->>DB: Save Alert to "notifications" with notification_type = 'WARNING'

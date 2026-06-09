@@ -55,13 +55,13 @@ CREATE TABLE IF NOT EXISTS predictions (
     id SERIAL PRIMARY KEY,
     sensor_log_id INTEGER REFERENCES sensor_logs(id) ON DELETE CASCADE,
     
-    -- Hasil Model 1: Detektor Bau (K-Means)
-    prediction_label VARCHAR(50) NOT NULL, -- Kategori Bau: 'Wangi', 'Normal', 'Bau'
-    confidence_score FLOAT,                -- NULLABLE karena K-Means tidak menghasilkan probabilitas
+    -- Hasil Model 1: Detektor Kekeringan (Decision Tree)
+    prediction_label VARCHAR(50) NOT NULL, -- Kategori Kekeringan: 'Kering', 'Lembap', 'Basah'
+    confidence_score FLOAT,                -- NULLABLE
     
-    -- Hasil Model 2: Estimasi Pengeringan (Regression)
-    estimated_drying_time FLOAT,           -- Sisa waktu pengeringan dalam menit (sisa_waktu_menit dari ML)
-    drying_status VARCHAR(100),            -- Status kondisi pengeringan dari ML (status dari ML)
+    -- Hasil Model 2: Estimasi Pengeringan (Heuristik)
+    estimated_drying_time FLOAT,           -- Sisa waktu pengeringan dalam menit
+    drying_status VARCHAR(100),            -- Status kondisi pengeringan dari ML
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
