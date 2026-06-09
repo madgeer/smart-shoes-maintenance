@@ -19,8 +19,8 @@ graph TD
     
     Gateway --> CallML["Tembak API Inferensi ML Service Python"]
     
-    CallML --> MLSmell["1. Klasifikasi Bau K-Means"]
-    CallML --> MLDrying["2. Estimasi Waktu Pengeringan Regression"]
+    CallML --> MLSmell["1. Klasifikasi Dryness Decision Tree"]
+    CallML --> MLDrying["2. Estimasi Waktu Pengeringan Heuristik"]
     
     MLSmell --> SavePred["Simpan Hasil Analisis ke PostgreSQL: predictions"]
     MLDrying --> SavePred
@@ -31,7 +31,7 @@ graph TD
     
     %% Triggers Check (Safe text without special characters like '>' or '%')
     CheckTriggers -->|Kadar Bau Di Atas 600 ppm| SmellAlert["Kirim Alert 'Deteksi Bau' via WebSocket & Bot Telegram"]
-    CheckTriggers -->|Kelembapan Di Atas 75 Persen| WetAlert["Kirim Alert 'Kelembapan Tinggi' via WebSocket & Bot Telegram"]
+    CheckTriggers -->|Kelembapan Di Atas 70 Persen| WetAlert["Kirim Alert 'Kelembapan Tinggi' via WebSocket & Bot Telegram"]
     CheckTriggers -->|Heater ON ke OFF atau Kelembapan Kering| DryAlert["Kirim Notifikasi 'Pengeringan Selesai' via WebSocket & Bot Telegram"]
     CheckTriggers -->|Kondisi Normal| NormalFlow["Lewati Pengiriman Alert"]
     
@@ -44,7 +44,7 @@ graph TD
     CalcAutoActuators --> ModeControl{Mode Kontrol Alat}
     
     ModeControl -->|Manual| ActManual["Kunci Aktuator Sesuai Pilihan User di Dashboard"]
-    ModeControl -->|Auto| ActAuto["Set Aktuator Otomatis: Heater = f(Kelembapan), UV = f(Bau), Kipas = f(Heater/UV)"]
+    ModeControl -->|Auto| ActAuto["Set Aktuator Otomatis: Heater = f(Kelembapan), UV = f(Kekeringan), Kipas = f(Heater/UV)"]
     
     ActManual --> SaveDeviceState["Update Status Aktuator di PostgreSQL: devices"]
     ActAuto --> SaveDeviceState

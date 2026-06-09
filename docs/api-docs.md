@@ -287,34 +287,35 @@ Mengambil riwayat log pemeliharaan untuk perangkat tertentu.
 
 ML Service dipanggil secara internal oleh Gateway Service atau secara mandiri untuk analisis model machine learning. Base URL default: `http://localhost:8000`.
 
-### A. Deteksi & Klasifikasi Tingkat Bau Sepatu (K-Means Clustering)
+### A. Deteksi & Klasifikasi Tingkat Kekeringan Sepatu (Decision Tree Classifier)
 
-Mengelompokkan aroma sepatu secara objektif ke dalam 3 level (**Wangi**, **Normal**, **Bau**) berdasarkan data sensor gas MQ-135 dan kelembapan saat ini.
+Mengelompokkan tingkat kekeringan sepatu secara objektif ke dalam 3 level (**Kering**, **Lembap**, **Basah**) berdasarkan data kelembapan saat ini menggunakan model Decision Tree Classifier.
 * **HTTP Method**: POST
-* **Endpoint**: `/predict/smell`
+* **Endpoint**: `/predict/dryness`
 * **Request Body**:
 ```json
 {
   "gas_mq135": 150.0,
-  "kelembapan_sekarang": 25.0
+  "kelembapan_sekarang": 75.0,
+  "suhu": 25.0
 }
 ```
 * **Success Response (200 OK)**:
 ```json
 {
-  "klaster_asli": 0,
-  "label": 0,
-  "kategori": "Wangi",
-  "gas_mq135_normalisasi": 0.0542,
-  "kelembapan_normalisasi": 0.1623
+  "klaster_asli": 2,
+  "label": 2,
+  "kategori": "Basah",
+  "gas_mq135_normalisasi": 0.0,
+  "kelembapan_normalisasi": 0.8125
 }
 ```
 
 ---
 
-### B. Estimasi Sisa Waktu Pengeringan Sepatu (Multiple Linear Regression)
+### B. Estimasi Sisa Waktu Pengeringan Sepatu (Matematika Heuristik)
 
-Menghitung estimasi sisa waktu pengeringan sepatu dalam satuan menit berdasarkan kelembapan awal, kelembapan sekarang, suhu udara, jenis bahan sepatu, dan sensor bau.
+Menghitung estimasi sisa waktu pengeringan sepatu dalam satuan menit secara akurat berdasarkan tipe bahan sepatu (Mesh, Kanvas, Kulit) dan laju penguapan dinamis berbasis suhu box.
 * **HTTP Method**: POST
 * **Endpoint**: `/predict/maintenance`
 * **Request Body**:
@@ -327,12 +328,12 @@ Menghitung estimasi sisa waktu pengeringan sepatu dalam satuan menit berdasarkan
   "sensor_bau": 300.0
 }
 ```
-*(Catatan `jenis_bahan`: 1 untuk Kanvas, 2 untuk Kulit, 3 untuk Mesh)*
+*(Catatan `jenis_bahan`: 1 untuk Kanvas (multiplier 1.0), 2 untuk Kulit (multiplier 0.7), 3 untuk Mesh (multiplier 1.5))*
 
 * **Success Response (200 OK)**:
 ```json
 {
-  "sisa_waktu_menit": 25.42,
+  "sisa_waktu_menit": 5.56,
   "status": "Sedang dikeringkan (Kondisi sepatu hampir kering)"
 }
 ```
